@@ -2,7 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use anyhow::Result;
+use clawdia_lib::Config;
 
 fn main() -> Result<()> {
-    clawdia_lib::run()
+    let config = Config::load_or_create_default()?;
+    clawdia_lib::run(config)
 }
