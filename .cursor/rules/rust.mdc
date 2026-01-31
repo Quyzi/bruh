@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+# Rust Safety Rules
+
+1. Never use unsafe code. 
+2. Don't use unwrap or expect. Instead use a proper match or if let and handle the errors appropriately. 
+3. Use standard library traits like From, and TryFrom. 
+4. Prefer borrowing wherever possible. 
+
+# General Rules 
+
+1. Don't use short names for variable names or acronyms. Variable and function names should be descriptive. 
+2. Add doc comments to functions, but don't be too verbose. Include a short description of what it is and any inputs and outputs. 
+3. Don't add examples to function doc comments. 
+4. Don't write monolithic functions, break it up into units. 
+5. Use `thiserror::Error` for errors in library code (like secrets), and `anyhow` in application code. 

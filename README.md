@@ -1,7 +1,45 @@
-# Tauri + Solid + Typescript
+# Clawdia
+Clawdia is a powerful twitch chatbot written in rust powered by [tauri](https://v2.tauri.app/). The frontend is written in HTML + Typescript using solid.js. 
 
-This template should help get you started developing with Tauri, Solid and Typescript in Vite.
+# Project Layout
+- `./src` :: Typescript + solid.js user interface
+- `./src-tauri` :: Rust backend
 
-## Recommended IDE Setup
+# Features
++ Custom actions on eventsub events
++ Chat message parsing and extraction
++ Scripted actions using rhai language
++ Encrypted secrets storage
++ Sqlite database support
++ Twitch authentication using [client credentials grant flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#client-credentials-grant-flow)
++ User specified client_id and client_secret for authentication
++ Multiple twitch channels
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+# User Interface
+The Bruh UI is a simple web service running on https://localhost:42069
+1. Initial Setup for global configuration
+    - Config generation
+    - Secrets setup
+    - Twitch authentication
+2. Workflow editor powered by [litegraph](https://github.com/jagenjo/litegraph.js)
+3. Secrets editor
+4. Database query UI (duckdb web ui)
+
+## Litegraph Custom Nodes
+- A custom node for each [twitch eventsub event](https://dev.twitch.tv/docs/eventsub/eventsub-reference/#events)
+- Store Secret
+- Retrieve Secret
+- Database query
+- Run rhai script
+- Send chat message
+
+# Rust Crates Used
+- `rhai` :: User action scripting language
+- `async_duckdb` :: Sqlite 
+- `twitch_api` :: Twitch authentication and eventsub handling
+- `securestore` :: Secrets storage
+
+# Javascript libraries used
+- `litegraph` :: Workflow editor
+- `solidjs` :: TS/JS library
+- `monaco-editor` :: Code editor 
