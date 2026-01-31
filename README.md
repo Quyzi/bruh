@@ -43,3 +43,4 @@ The Bruh UI is a simple web service running on https://localhost:42069
 - `litegraph` :: Workflow editor
 - `solidjs` :: TS/JS library
 - `monaco-editor` :: Code editor 
+- `tailwindcss` :: CSS Framework

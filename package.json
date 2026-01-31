@@ -12,11 +12,13 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "litegraph.js": "^0.7.18",
     "monaco-editor": "^0.55.1",
-    "solid-js": "^1.9.3"
+    "solid-js": "^1.9.3",
+    "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
