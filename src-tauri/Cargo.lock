@@ -290,6 +290,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-duckdb"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "471a468db6e4daa7fc63296f01d9434c99eac52263852dc9dbb1fd15d8661091"
+dependencies = [
+ "crossbeam-channel",
+ "duckdb",
+ "futures-channel",
+ "futures-util",
+]
+
+[[package]]
 name = "async-executor"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -750,7 +762,7 @@ name = "clawdia"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "duckdb",
+ "async-duckdb",
  "futures",
  "homedir",
  "rhai",
