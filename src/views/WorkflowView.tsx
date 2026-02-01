@@ -80,6 +80,8 @@ export function WorkflowView() {
     });
 
     // Configure canvas styling
+    graphCanvas.highquality_render = true;
+    graphCanvas.always_render_background = true;
     graphCanvas.render_shadows = true;
     graphCanvas.render_connections_shadows = false;
     graphCanvas.render_curved_connections = true;
@@ -88,7 +90,8 @@ export function WorkflowView() {
     graphCanvas.default_link_color = "#646cff";
     graphCanvas.highquality_render = true;
 
-    // Custom background drawing for our dark theme
+    // Custom background drawing for our dark theme.
+    // We draw after LiteGraph's drawGroups, so we must redraw groups on top of our background.
     graphCanvas.onDrawBackground = (ctx: CanvasRenderingContext2D) => {
       // Fill background
       ctx.fillStyle = "#1a1a1a";
@@ -115,6 +118,11 @@ export function WorkflowView() {
         ctx.lineTo(ctx.canvas.width / scale, y);
       }
       ctx.stroke();
+
+      // Redraw groups on top of our background (LiteGraph draws them before this callback)
+      if (!(graphCanvas as { live_mode?: boolean }).live_mode) {
+        graphCanvas!.drawGroups(canvasRef!, ctx);
+      }
     };
 
     // Handle resize

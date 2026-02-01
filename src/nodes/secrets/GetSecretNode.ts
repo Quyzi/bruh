@@ -1,13 +1,9 @@
 import { LiteGraph } from "litegraph.js";
 
 export function GetSecretNode(this: any) {
-  this.addInput("trigger", LiteGraph.ACTION);
-  this.addOutput("done", LiteGraph.EVENT);
+  this.addInput("name", "string");
   this.addOutput("value", "string");
   this.properties = { key: "" };
-  this.addWidget("text", "Key", this.properties.key, (v: string) => {
-    this.properties.key = v;
-  });
 }
 
 GetSecretNode.prototype.onAction = function(this: any) {
