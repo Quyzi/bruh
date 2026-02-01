@@ -60,8 +60,6 @@ export function WorkflowView() {
     });
 
     // Configure canvas styling
-    graphCanvas.background_image = ""; // Remove default grid image
-    graphCanvas.clear_background = true;
     graphCanvas.render_shadows = true;
     graphCanvas.render_connections_shadows = false;
     graphCanvas.render_curved_connections = true;
