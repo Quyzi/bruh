@@ -21,25 +21,22 @@ const callbackErrorDesc = callbackError
 
 // Callback page component - shown when Twitch redirects back in external browser
 function CallbackPage() {
-  const copyUrl = async () => {
+  const [revealed, setRevealed] = createSignal(false);
+  const [copied, setCopied] = createSignal(false);
+
+  const copyAndReveal = async () => {
     try {
       await navigator.clipboard.writeText(callbackFullUrl);
-      const btn = document.getElementById("copy-btn");
-      if (btn) {
-        btn.textContent = "Copied!";
-        setTimeout(() => {
-          btn.textContent = "Copy URL to Clipboard";
-        }, 2000);
-      }
+      setCopied(true);
+      setRevealed(true);
+      setTimeout(() => {
+        setRevealed(false);
+        setCopied(false);
+      }, 2000);
     } catch {
-      // Fallback - select the text
-      const div = document.querySelector(".select-all");
-      if (div) {
-        const range = document.createRange();
-        range.selectNodeContents(div);
-        window.getSelection()?.removeAllRanges();
-        window.getSelection()?.addRange(range);
-      }
+      // Fallback - just reveal
+      setRevealed(true);
+      setTimeout(() => setRevealed(false), 2000);
     }
   };
 
@@ -57,19 +54,27 @@ function CallbackPage() {
         <div class="space-y-4">
           <div>
             <label class="block text-text-secondary text-sm mb-2">
-              Callback URL (copy this entire URL):
+              Callback URL (click to copy):
             </label>
-            <div class="bg-bg-tertiary border border-border rounded p-3 text-text-primary text-xs font-mono break-all select-all">
+            <div
+              onClick={copyAndReveal}
+              class={`bg-bg-tertiary border border-border rounded p-3 text-text-primary text-xs font-mono break-all cursor-pointer hover:bg-bg-secondary transition-all ${
+                revealed() ? "select-all" : "blur-sm hover:blur-[2px]"
+              }`}
+              title="Click to copy and reveal"
+            >
               {callbackFullUrl}
             </div>
+            <p class="text-text-tertiary text-xs mt-1 italic">
+              URL is blurred for privacy - click to copy and reveal
+            </p>
           </div>
 
           <button
-            onClick={copyUrl}
-            id="copy-btn"
+            onClick={copyAndReveal}
             class="w-full bg-accent hover:bg-accent-hover text-white font-medium py-2 px-4 rounded transition-colors cursor-pointer"
           >
-            Copy URL to Clipboard
+            {copied() ? "Copied!" : "Copy URL to Clipboard"}
           </button>
 
           <div class="bg-accent/10 border border-accent/30 rounded p-3 text-accent text-sm">

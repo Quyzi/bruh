@@ -134,6 +134,8 @@ export function SetupView(props: SetupViewProps) {
   const [selectedScopes, setSelectedScopes] = createSignal<Set<string>>(new Set(DEFAULT_SCOPES));
   const [callbackUrl, setCallbackUrl] = createSignal<string | null>(null);
   const [scopeFilter, setScopeFilter] = createSignal("");
+  const [authUrlRevealed, setAuthUrlRevealed] = createSignal(false);
+  const [callbackUrlRevealed, setCallbackUrlRevealed] = createSignal(false);
 
   // Group scopes by category
   const scopesByCategory = () => {
@@ -532,12 +534,25 @@ export function SetupView(props: SetupViewProps) {
 
             <Show when={authUrl()}>
               <div class="space-y-3 pt-2">
-                <div class="text-xs text-text-tertiary bg-bg-tertiary p-2 rounded break-all font-mono select-all">
+                <div
+                  onClick={async () => {
+                    await writeText(authUrl()!);
+                    setAuthUrlRevealed(true);
+                    setTimeout(() => setAuthUrlRevealed(false), 2000);
+                  }}
+                  class={`text-xs text-text-tertiary bg-bg-tertiary p-2 rounded break-all font-mono cursor-pointer hover:bg-bg-secondary transition-all ${
+                    authUrlRevealed() ? "select-all" : "blur-sm hover:blur-[2px]"
+                  }`}
+                  title="Click to copy and reveal"
+                >
                   {authUrl()}
                 </div>
+                <p class="text-text-tertiary text-xs italic">
+                  Click the URL above to copy it to clipboard
+                </p>
                 <ol class="text-text-secondary text-sm list-decimal list-inside space-y-1">
                   <li>Open your browser</li>
-                  <li>Paste the link above into the address bar</li>
+                  <li>Paste the link into the address bar</li>
                   <li>Authorize the application on Twitch</li>
                   <li>Copy the full URL from your browser after being redirected</li>
                   <li>Paste it below to complete authorization</li>
@@ -547,13 +562,22 @@ export function SetupView(props: SetupViewProps) {
                   <label class="block text-text-secondary text-sm mb-1">
                     Paste Callback URL
                   </label>
-                  <input
-                    type="text"
-                    value={callbackUrl() ?? ""}
-                    onInput={(e) => setCallbackUrl(e.currentTarget.value)}
-                    placeholder="http://localhost:1420/callback?code=...&state=..."
-                    class="w-full bg-bg-tertiary border border-border rounded px-3 py-2 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent font-mono text-xs"
-                  />
+                  <div class="relative">
+                    <input
+                      type="text"
+                      value={callbackUrl() ?? ""}
+                      onInput={(e) => setCallbackUrl(e.currentTarget.value)}
+                      onFocus={() => setCallbackUrlRevealed(true)}
+                      onBlur={() => setCallbackUrlRevealed(false)}
+                      placeholder="http://localhost:1420/callback?code=...&state=..."
+                      class={`w-full bg-bg-tertiary border border-border rounded px-3 py-2 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent font-mono text-xs transition-all ${
+                        callbackUrl() && !callbackUrlRevealed() ? "blur-sm" : ""
+                      }`}
+                    />
+                  </div>
+                  <p class="text-text-tertiary text-xs mt-1 italic">
+                    Contains sensitive authorization code - blurred for privacy
+                  </p>
                 </div>
               </div>
             </Show>
