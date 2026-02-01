@@ -11,8 +11,6 @@ use clawdia_lib::{Config, Database};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt().init();
-
     let config = Config::load_or_create_default()?;
     let secrets = load_or_create_secrets(&config)?;
     let db = load_or_create_db(&config).await?;

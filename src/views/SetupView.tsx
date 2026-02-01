@@ -67,7 +67,7 @@ export function SetupView() {
     <div class="flex flex-col items-center justify-start h-full p-8 overflow-auto">
       <div class="w-full max-w-lg space-y-6">
         <div class="text-center space-y-2">
-          <h2 class="text-text-primary font-medium text-2xl">Initial Setup</h2>
+          <h2 class="text-text-primary font-medium text-2xl">Clawdia Setup</h2>
           <p class="text-text-secondary">
             Configure your Twitch API credentials to get started
           </p>
