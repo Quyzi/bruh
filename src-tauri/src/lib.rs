@@ -2,9 +2,11 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
+pub mod auth;
 pub mod config;
 pub mod secrets;
 
+pub use auth::{create_twitch_auth, AuthError, ReqwestTwitchAuth, SharedTwitchAuth, TwitchAuth};
 pub use config::{Config, ConfigError};
 pub use secrets::{SecureStoreConfig, SecureStoreProvider};
 
