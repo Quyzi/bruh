@@ -1,3 +1,4 @@
+pub mod commands;
 mod securestore;
 
 pub use securestore::{SecureStoreConfig, SecureStoreProvider};

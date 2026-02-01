@@ -32,6 +32,10 @@ pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
             setup::get_setup_status,
             setup::save_twitch_credentials,
             setup::test_twitch_credentials,
+            secrets::commands::list_secrets,
+            secrets::commands::get_secret,
+            secrets::commands::set_secret,
+            secrets::commands::delete_secret,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
