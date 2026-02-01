@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "clawdia",
-        "width": 800,
-        "height": 600
+        "title": "Clawdia",
+        "width": 1280,
+        "height": 720
       }
     ],
     "security": {
