@@ -1,12 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export interface SetupStatus {
-  twitch_configured: boolean;
+  credentialsConfigured: boolean;
+  userAuthorized: boolean;
+  twitchUsername?: string;
 }
 
 export interface TestResult {
   success: boolean;
   message: string;
+}
+
+export interface AuthUrlResponse {
+  url: string;
+  csrfToken: string;
+}
+
+export interface TokenExchangeResult {
+  success: boolean;
+  message: string;
+  username?: string;
 }
 
 export interface CommandError {
@@ -29,6 +42,25 @@ export async function saveTwitchCredentials(
 
 export async function testTwitchCredentials(): Promise<TestResult> {
   return invoke<TestResult>("test_twitch_credentials");
+}
+
+export async function getTwitchAuthUrl(): Promise<AuthUrlResponse> {
+  return invoke<AuthUrlResponse>("get_twitch_auth_url");
+}
+
+export async function exchangeTwitchCode(
+  code: string,
+  state: string
+): Promise<TokenExchangeResult> {
+  return invoke<TokenExchangeResult>("exchange_twitch_code", { code, state });
+}
+
+export async function validateTwitchToken(): Promise<TokenExchangeResult> {
+  return invoke<TokenExchangeResult>("validate_twitch_token");
+}
+
+export async function logoutTwitch(): Promise<void> {
+  return invoke("logout_twitch");
 }
 
 // Secrets management

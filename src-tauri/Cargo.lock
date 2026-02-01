@@ -780,6 +780,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "twitch_api",
+ "url",
 ]
 
 [[package]]

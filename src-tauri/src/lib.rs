@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use tracing_subscriber::{filter::LevelFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt, Registry};
+use tracing_subscriber::{
+    filter::LevelFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt, Registry,
+};
 
 pub mod auth;
 pub mod config;
@@ -46,6 +48,10 @@ pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
             setup::get_setup_status,
             setup::save_twitch_credentials,
             setup::test_twitch_credentials,
+            setup::get_twitch_auth_url,
+            setup::exchange_twitch_code,
+            setup::validate_twitch_token,
+            setup::logout_twitch,
             secrets::commands::list_secrets,
             secrets::commands::get_secret,
             secrets::commands::set_secret,

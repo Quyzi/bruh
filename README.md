@@ -11,7 +11,7 @@ Clawdia is a powerful twitch chatbot written in rust powered by [tauri](https://
 + Scripted actions using rhai language
 + Encrypted secrets storage
 + Sqlite database support
-+ Twitch authentication using [client credentials grant flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#client-credentials-grant-flow)
++ Twitch authentication using [authorization code grant flow](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#authorization-code-grant-flow)
 + User specified client_id and client_secret for authentication
 + Multiple twitch channels
 
