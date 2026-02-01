@@ -9,7 +9,7 @@ use crate::{
     auth::{
         clear_tokens_from_secrets, default_scopes, load_token_from_secrets, save_token_to_secrets,
         SECRET_TWITCH_ACCESS_TOKEN, SECRET_TWITCH_CLIENT_ID, SECRET_TWITCH_CLIENT_SECRET,
-        SECRET_TWITCH_REFRESH_TOKEN,
+        SECRET_TWITCH_CSRF_TOKEN, SECRET_TWITCH_REFRESH_TOKEN, SECRET_TWITCH_SCOPES,
     },
     secrets::{SecretsError, SecretsProvider},
     Secrets,
@@ -123,6 +123,7 @@ pub async fn save_twitch_credentials(
 /// Generates the OAuth authorization URL for the user to visit.
 #[tauri::command]
 pub async fn get_twitch_auth_url(
+    scopes: Vec<String>,
     secrets: State<'_, Secrets>,
 ) -> Result<AuthUrlResponse, CommandError> {
     let secrets = secrets.inner().clone();
@@ -156,8 +157,19 @@ pub async fn get_twitch_auth_url(
         twitch_api::HelixClient::default();
     let auth = crate::auth::TwitchAuth::new(client, client_id, client_secret, redirect_uri);
 
+    // Convert string scopes to Scope enum
+    use twitch_api::twitch_oauth2::Scope;
+    let parsed_scopes: Vec<Scope> = if scopes.is_empty() {
+        default_scopes()
+    } else {
+        scopes.into_iter().map(Scope::from).collect()
+    };
+
     // Generate authorization URL
-    let (auth_url, csrf_token): (Url, String) = auth.generate_auth_url(default_scopes()).await;
+    let (auth_url, csrf_token): (Url, String) = auth.generate_auth_url(parsed_scopes).await;
+
+    // Save CSRF token for later verification
+    secrets.set(SECRET_TWITCH_CSRF_TOKEN, &csrf_token)?;
 
     tracing::info!("Generated Twitch authorization URL");
 
@@ -172,6 +184,7 @@ pub async fn get_twitch_auth_url(
 pub async fn exchange_twitch_code(
     code: String,
     state: String,
+    _scopes: Vec<String>,
     secrets: State<'_, Secrets>,
 ) -> Result<TokenExchangeResult, CommandError> {
     let secrets = secrets.inner().clone();
@@ -193,7 +206,15 @@ pub async fn exchange_twitch_code(
             e => e.into(),
         })?;
 
-    // Create auth instance and exchange code
+    // Load the saved CSRF token
+    let expected_csrf = secrets.get(SECRET_TWITCH_CSRF_TOKEN).map_err(|e| match e {
+        SecretsError::NotFound(_) => CommandError {
+            message: "No pending authorization found. Please generate a new auth link.".to_string(),
+        },
+        e => e.into(),
+    })?;
+
+    // Create auth instance
     let redirect_uri =
         Url::parse(crate::auth::DEFAULT_REDIRECT_URI).map_err(|e: url::ParseError| {
             CommandError {
@@ -205,16 +226,19 @@ pub async fn exchange_twitch_code(
         twitch_api::HelixClient::default();
     let auth = crate::auth::TwitchAuth::new(client, client_id, client_secret, redirect_uri);
 
-    // Generate URL first to set up pending auth state
-    let _: (Url, String) = auth.generate_auth_url(default_scopes()).await;
+    // Exchange code for token with verified CSRF
+    let token = auth
+        .exchange_code_with_verified_csrf(&code, &state, &expected_csrf)
+        .await
+        .map_err(|e| {
+            tracing::warn!("Failed to exchange authorization code: {}", e);
+            CommandError {
+                message: format!("Failed to exchange authorization code: {}", e),
+            }
+        })?;
 
-    // Exchange code for token
-    let token = auth.exchange_code(&code, &state).await.map_err(|e| {
-        tracing::warn!("Failed to exchange authorization code: {}", e);
-        CommandError {
-            message: format!("Failed to exchange authorization code: {}", e),
-        }
-    })?;
+    // Clear the CSRF token since it's been used
+    let _ = secrets.delete(SECRET_TWITCH_CSRF_TOKEN);
 
     // Save token to secrets
     save_token_to_secrets(secrets.as_ref(), &token).map_err(|e| CommandError {
@@ -382,4 +406,45 @@ pub async fn test_twitch_credentials(
         success: false,
         message: "Credentials configured. Please complete authorization with Twitch.".to_string(),
     })
+}
+
+/// Saves selected scopes to secrets for future use.
+#[tauri::command]
+pub async fn save_twitch_scopes(
+    scopes: Vec<String>,
+    secrets: State<'_, Secrets>,
+) -> Result<(), CommandError> {
+    let secrets = secrets.inner().clone();
+
+    // Join scopes with a delimiter
+    let scopes_str = scopes.join(",");
+    secrets.set(SECRET_TWITCH_SCOPES, &scopes_str)?;
+
+    tracing::debug!("Saved {} scopes to secrets", scopes.len());
+    Ok(())
+}
+
+/// Gets previously saved scopes from secrets.
+#[tauri::command]
+pub async fn get_twitch_scopes(secrets: State<'_, Secrets>) -> Result<Vec<String>, CommandError> {
+    let secrets = secrets.inner().clone();
+
+    match secrets.get(SECRET_TWITCH_SCOPES) {
+        Ok(scopes_str) => {
+            let scopes: Vec<String> = scopes_str
+                .split(',')
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect();
+            Ok(scopes)
+        }
+        Err(SecretsError::NotFound(_)) => {
+            // Return default scopes if none saved
+            Ok(default_scopes()
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect())
+        }
+        Err(e) => Err(e.into()),
+    }
 }

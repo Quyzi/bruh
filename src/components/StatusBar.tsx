@@ -1,5 +1,6 @@
 import { createSignal, createEffect, For, Show, onMount, onCleanup } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
+import { getSetupStatus, validateTwitchToken } from "../lib/tauri";
 
 interface LogPayload {
   level: number;
@@ -53,11 +54,21 @@ const LEVEL_OPTIONS = [
   { value: 5, label: "ERROR" },
 ];
 
+type AuthStatus = "red" | "yellow" | "green";
+
+const authStatusColors: Record<AuthStatus, string> = {
+  red: "bg-error",
+  yellow: "bg-warning",
+  green: "bg-success",
+};
+
 export function StatusBar(props: StatusBarProps) {
   const [activeLogTab, setActiveLogTab] = createSignal("app");
   const [logs, setLogs] = createSignal<LogEntry[]>([]);
   const [backlogLength, setBacklogLength] = createSignal(100);
   const [minLevel, setMinLevel] = createSignal(3); // Default to INFO
+  const [authStatus, setAuthStatus] = createSignal<AuthStatus>("red");
+  const [twitchUsername, setTwitchUsername] = createSignal<string | null>(null);
   let logId = 0;
   let logContainerRef: HTMLDivElement | undefined;
 
@@ -68,6 +79,43 @@ export function StatusBar(props: StatusBarProps) {
     { id: "channel-placeholder", label: "#channel" },
   ];
 
+  // Check auth status on mount
+  const checkAuthStatus = async () => {
+    try {
+      const status = await getSetupStatus();
+      
+      if (!status.credentialsConfigured) {
+        setAuthStatus("red");
+        setTwitchUsername(null);
+        return;
+      }
+      
+      if (!status.userAuthorized) {
+        setAuthStatus("yellow");
+        setTwitchUsername(null);
+        return;
+      }
+      
+      // Validate token
+      try {
+        const result = await validateTwitchToken();
+        if (result.success) {
+          setAuthStatus("green");
+          setTwitchUsername(result.username ?? null);
+        } else {
+          setAuthStatus("yellow");
+          setTwitchUsername(null);
+        }
+      } catch {
+        setAuthStatus("yellow");
+        setTwitchUsername(null);
+      }
+    } catch {
+      setAuthStatus("red");
+      setTwitchUsername(null);
+    }
+  };
+
   // Auto-scroll to bottom when new logs arrive
   createEffect(() => {
     logs(); // Subscribe to logs changes
@@ -77,6 +125,10 @@ export function StatusBar(props: StatusBarProps) {
   });
 
   onMount(async () => {
+    // Check auth status
+    await checkAuthStatus();
+
+    // Listen for log events
     const unlisten = await listen<LogPayload>("tracing://log", (event) => {
       const { level, target, message, fields } = event.payload;
       const timestamp = new Date().toLocaleTimeString("en-US", { hour12: false });
@@ -95,7 +147,13 @@ export function StatusBar(props: StatusBarProps) {
       ]);
     });
 
-    onCleanup(() => unlisten());
+    // Periodically check auth status (every 30 seconds)
+    const authCheckInterval = setInterval(checkAuthStatus, 30000);
+
+    onCleanup(() => {
+      unlisten();
+      clearInterval(authCheckInterval);
+    });
   });
 
   const handleBacklogChange = (newLength: number) => {
@@ -111,9 +169,27 @@ export function StatusBar(props: StatusBarProps) {
     >
       <div class="flex items-center justify-between h-8 min-h-8 px-4">
         <div class="flex items-center gap-6">
-          <div class="flex items-center gap-1 text-xs">
+          <div class="flex items-center gap-1.5 text-xs">
             <span class="text-text-secondary">Status:</span>
-            <span class="text-success">Ready</span>
+            <span
+              class={`w-2 h-2 rounded-full ${authStatusColors[authStatus()]}`}
+              title={
+                authStatus() === "red"
+                  ? "Not configured"
+                  : authStatus() === "yellow"
+                  ? "Configured but not working"
+                  : "Connected"
+              }
+            />
+            <Show when={twitchUsername()}>
+              <span class="text-text-primary">{twitchUsername()}</span>
+            </Show>
+            <Show when={!twitchUsername() && authStatus() === "red"}>
+              <span class="text-text-tertiary">Not configured</span>
+            </Show>
+            <Show when={!twitchUsername() && authStatus() === "yellow"}>
+              <span class="text-text-tertiary">Not authorized</span>
+            </Show>
           </div>
           <div class="flex items-center gap-1 text-xs">
             <span class="text-text-secondary">Messages:</span>

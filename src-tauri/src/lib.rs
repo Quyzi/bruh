@@ -29,6 +29,7 @@ fn greet(name: &str) -> String {
 pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             // Set up tracing with both terminal output and webview forwarding
             Registry::default()
@@ -52,6 +53,8 @@ pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
             setup::exchange_twitch_code,
             setup::validate_twitch_token,
             setup::logout_twitch,
+            setup::save_twitch_scopes,
+            setup::get_twitch_scopes,
             secrets::commands::list_secrets,
             secrets::commands::get_secret,
             secrets::commands::set_secret,

@@ -31,8 +31,9 @@ tokio = { version = "1.49.0", features = ["full"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.22"
 twitch_api = { version = "0.7.2", features = ["all", "reqwest"] }
-reqwest = "0.12"
+reqwest = { version = "0.12", features = ["json"] }
 url = "2.5.8"
+tauri-plugin-clipboard-manager = "2.3.2"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

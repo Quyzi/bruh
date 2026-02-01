@@ -44,15 +44,16 @@ export async function testTwitchCredentials(): Promise<TestResult> {
   return invoke<TestResult>("test_twitch_credentials");
 }
 
-export async function getTwitchAuthUrl(): Promise<AuthUrlResponse> {
-  return invoke<AuthUrlResponse>("get_twitch_auth_url");
+export async function getTwitchAuthUrl(scopes: string[]): Promise<AuthUrlResponse> {
+  return invoke<AuthUrlResponse>("get_twitch_auth_url", { scopes });
 }
 
 export async function exchangeTwitchCode(
   code: string,
-  state: string
+  state: string,
+  scopes: string[]
 ): Promise<TokenExchangeResult> {
-  return invoke<TokenExchangeResult>("exchange_twitch_code", { code, state });
+  return invoke<TokenExchangeResult>("exchange_twitch_code", { code, state, scopes });
 }
 
 export async function validateTwitchToken(): Promise<TokenExchangeResult> {
@@ -61,6 +62,14 @@ export async function validateTwitchToken(): Promise<TokenExchangeResult> {
 
 export async function logoutTwitch(): Promise<void> {
   return invoke("logout_twitch");
+}
+
+export async function saveTwitchScopes(scopes: string[]): Promise<void> {
+  return invoke("save_twitch_scopes", { scopes });
+}
+
+export async function getTwitchScopes(): Promise<string[]> {
+  return invoke<string[]>("get_twitch_scopes");
 }
 
 // Secrets management

@@ -19,12 +19,14 @@ use url::Url;
 use crate::secrets::{SecretsError, SecretsProvider};
 
 // Secret keys for credentials
-pub const SECRET_TWITCH_CLIENT_ID: &str = "twitch_client_id";
-pub const SECRET_TWITCH_CLIENT_SECRET: &str = "twitch_client_secret";
+pub const SECRET_TWITCH_CLIENT_ID: &str = "twitch/client_id";
+pub const SECRET_TWITCH_CLIENT_SECRET: &str = "twitch/client_secret";
 
 // Secret keys for user tokens
-pub const SECRET_TWITCH_ACCESS_TOKEN: &str = "twitch_access_token";
-pub const SECRET_TWITCH_REFRESH_TOKEN: &str = "twitch_refresh_token";
+pub const SECRET_TWITCH_ACCESS_TOKEN: &str = "twitch/access_token";
+pub const SECRET_TWITCH_REFRESH_TOKEN: &str = "twitch/refresh_token";
+pub const SECRET_TWITCH_SCOPES: &str = "twitch/scopes";
+pub const SECRET_TWITCH_CSRF_TOKEN: &str = "twitch/csrf_token";
 
 /// Default redirect URI for OAuth callback (uses Tauri's dev server port)
 pub const DEFAULT_REDIRECT_URI: &str = "http://localhost:1420/callback";
@@ -210,6 +212,92 @@ where
             .get_user_token(&self.client, state, code)
             .await
             .map_err(|e| AuthError::TokenRequest(e.to_string()))?;
+
+        // Store the token
+        let mut token_guard = self.token.write().await;
+        *token_guard = Some(token.clone());
+
+        Ok(token)
+    }
+
+    /// Exchanges the authorization code for a user token with a pre-verified CSRF token.
+    ///
+    /// This variant is used when the CSRF token has been stored and verified externally
+    /// (e.g., stored in secrets between the auth URL generation and code exchange).
+    /// It bypasses the UserTokenBuilder's internal CSRF check by making a direct HTTP request.
+    pub async fn exchange_code_with_verified_csrf(
+        &self,
+        code: &str,
+        state: &str,
+        expected_csrf: &str,
+    ) -> Result<UserToken, AuthError> {
+        // Verify CSRF ourselves
+        if state != expected_csrf {
+            return Err(AuthError::InvalidCsrf);
+        }
+
+        // Exchange the code using direct HTTP request to bypass UserTokenBuilder's CSRF check
+        let http_client = reqwest::Client::new();
+        let params = [
+            ("client_id", self.client_id.as_str()),
+            ("client_secret", self.client_secret.secret()),
+            ("code", code),
+            ("grant_type", "authorization_code"),
+            ("redirect_uri", self.redirect_uri.as_str()),
+        ];
+
+        let response = http_client
+            .post("https://id.twitch.tv/oauth2/token")
+            .form(&params)
+            .send()
+            .await
+            .map_err(|e| AuthError::TokenRequest(e.to_string()))?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AuthError::TokenRequest(format!(
+                "Token request failed: {}",
+                error_text
+            )));
+        }
+
+        #[derive(serde::Deserialize)]
+        struct TokenResponse {
+            access_token: String,
+            refresh_token: String,
+            expires_in: u64,
+        }
+
+        let token_response: TokenResponse = response
+            .json()
+            .await
+            .map_err(|e| AuthError::TokenRequest(e.to_string()))?;
+
+        // Validate the token to get user info (login, user_id, scopes)
+        let access_token = AccessToken::from(token_response.access_token);
+        let refresh_token = RefreshToken::from(token_response.refresh_token);
+
+        // Use from_token to validate and get user info
+        let validated_token = UserToken::from_token(&http_client, access_token)
+            .await
+            .map_err(|e| AuthError::TokenRequest(e.to_string()))?;
+
+        // Extract values before moving
+        let scopes = validated_token.scopes().to_vec();
+        let login = validated_token.login.clone();
+        let user_id = validated_token.user_id.clone();
+
+        // Create final token with refresh token and client secret for auto-refresh
+        let token = UserToken::from_existing_unchecked(
+            validated_token.access_token,
+            Some(refresh_token),
+            self.client_id.clone(),
+            Some(self.client_secret.clone()),
+            login,
+            user_id,
+            Some(scopes),
+            Some(std::time::Duration::from_secs(token_response.expires_in)),
+        );
 
         // Store the token
         let mut token_guard = self.token.write().await;
