@@ -1,9 +1,7 @@
 import { LiteGraph } from "litegraph.js";
 
 export function SendChatNode(this: any) {
-  this.addInput("trigger", LiteGraph.ACTION);
-  this.addInput("message", "string");
-  this.addOutput("done", LiteGraph.EVENT);
+  this.addInput("input", LiteGraph.ACTION);
   this.properties = { message: "Hello, chat!" };
   this.addWidget("text", "Message", this.properties.message, (v: string) => {
     this.properties.message = v;

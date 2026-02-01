@@ -4,11 +4,12 @@ import { DashboardView } from "./views/DashboardView";
 import { ChannelsView } from "./views/ChannelsView";
 import { SetupView } from "./views/SetupView";
 import { WorkflowView } from "./views/WorkflowView";
+import { ScriptsView } from "./views/ScriptsView";
 import { SecretsView } from "./views/SecretsView";
 import { DatabaseView } from "./views/DatabaseView";
 import "./App.css";
 
-export type TabId = "dashboard" | "channels" | "workflow" | "secrets" | "database" | "setup";
+export type TabId = "dashboard" | "channels" | "workflow" | "scripts" | "secrets" | "database" | "setup";
 
 // Check for callback URL immediately (before component renders)
 const initialUrl = new URL(window.location.href);
@@ -134,6 +135,9 @@ function App() {
         </Match>
         <Match when={activeTab() === "workflow"}>
           <WorkflowView />
+        </Match>
+        <Match when={activeTab() === "scripts"}>
+          <ScriptsView />
         </Match>
         <Match when={activeTab() === "secrets"}>
           <SecretsView />

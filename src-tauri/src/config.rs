@@ -40,6 +40,8 @@ pub enum ConfigError {
 pub struct Config {
     /// Path to the DuckDB database file.
     pub database: PathBuf,
+    /// Path to scripts directory. 
+    pub scripts: PathBuf,
     /// Path to the encryption key used for the secrets store.
     pub secrets_key: PathBuf,
     /// Path to the encrypted secrets JSON file.
@@ -57,6 +59,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             database: "~/.clawdia/user.duckdb".into(),
+            scripts: "~/.clawdia/scripts".into(),
             secrets_key: "~/.clawdia/secrets.key".into(),
             secrets: "~/.clawdia/secrets.json".into(),
             workflow: default_workflow_path(),

@@ -97,3 +97,24 @@ export async function saveWorkflow(workflow: unknown): Promise<void> {
 export async function loadWorkflow(): Promise<unknown | null> {
   return invoke<unknown | null>("load_workflow");
 }
+
+// Scripts management (uses config.scripts directory)
+export async function listScripts(): Promise<string[]> {
+  return invoke<string[]>("list_scripts");
+}
+
+export async function readScript(name: string): Promise<string> {
+  return invoke<string>("read_script", { name });
+}
+
+export async function writeScript(name: string, content: string): Promise<void> {
+  return invoke("write_script", { name, content });
+}
+
+export async function deleteScript(name: string): Promise<void> {
+  return invoke("delete_script", { name });
+}
+
+export async function renameScript(oldName: string, newName: string): Promise<void> {
+  return invoke("rename_script", { oldName, newName });
+}

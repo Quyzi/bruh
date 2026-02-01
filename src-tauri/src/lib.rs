@@ -8,6 +8,7 @@ use tracing_subscriber::{
 pub mod auth;
 pub mod config;
 mod log_layer;
+pub mod scripts;
 pub mod secrets;
 pub mod setup;
 pub mod workflow;
@@ -61,6 +62,11 @@ pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
             secrets::commands::delete_secret,
             workflow::commands::save_workflow,
             workflow::commands::load_workflow,
+            scripts::commands::list_scripts,
+            scripts::commands::read_script,
+            scripts::commands::write_script,
+            scripts::commands::delete_script,
+            scripts::commands::rename_script,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

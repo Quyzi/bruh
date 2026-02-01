@@ -1,91 +1,79 @@
 import { LiteGraph } from "litegraph.js";
+import { listScripts } from "../../lib/tauri";
 
-const TEXTAREA_HEIGHT = 200;
+const LOADING_PLACEHOLDER = "(loading…)";
+const EMPTY_PLACEHOLDER = "(no scripts)";
 
 export function RhaiScriptNode(this: any) {
-  this.addInput("trigger", LiteGraph.ACTION);
-  this.addInput("input", "any");
-  this.addOutput("done", LiteGraph.EVENT);
-  this.addOutput("result", "any");
-  this.properties = { script: "// Rhai script\nlet result = input;\nresult" };
+  this.addInput("input", LiteGraph.ACTION);
+  this.addOutput("output", LiteGraph.EVENT);
+  this.properties = { scriptName: "" };
 
-  // Custom textarea widget
-  const widget = this.addCustomWidget({
-    name: "script",
-    type: "textarea",
-    value: this.properties.script,
-    draw: function (
-      ctx: CanvasRenderingContext2D,
-      node: any,
-      widgetWidth: number,
-      y: number
-    ) {
-      const margin = 10;
-      const width = widgetWidth - margin * 2;
-
-      // Background
-      ctx.fillStyle = "#1a1a1a";
-      ctx.fillRect(margin, y, width, TEXTAREA_HEIGHT);
-
-      // Border
-      ctx.strokeStyle = "#444";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(margin, y, width, TEXTAREA_HEIGHT);
-
-      // Text
-      ctx.fillStyle = "#b0b0b0";
-      ctx.font = "12px monospace";
-      const lines = (node.properties.script || "").split("\n");
-      const lineHeight = 16;
-      const padding = 6;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(margin, y, width, TEXTAREA_HEIGHT);
-      ctx.clip();
-
-      for (let i = 0; i < lines.length; i++) {
-        const textY = y + padding + lineHeight * (i + 1) - 3;
-        if (textY > y + TEXTAREA_HEIGHT) break;
-        ctx.fillText(lines[i], margin + padding, textY);
-      }
-
-      ctx.restore();
-
-      return TEXTAREA_HEIGHT;
+  // Combo needs at least one value; we replace with real list in onAddedToGraph
+  this.addWidget(
+    "combo",
+    "Script",
+    this.properties.scriptName,
+    (value: string) => {
+      this.properties.scriptName = value;
     },
-    mouse: function (event: any, _pos: [number, number], node: any) {
-      if (event.type === "pointerdown") {
-        // Open a prompt for editing
-        const newValue = prompt("Edit Rhai Script:", node.properties.script);
-        if (newValue !== null) {
-          node.properties.script = newValue;
-          this.value = newValue;
-          node.setDirtyCanvas(true);
-        }
-        return true;
-      }
-      return false;
-    },
-    computeSize: function () {
-      return [0, TEXTAREA_HEIGHT + 10];
-    },
-  });
+    { values: [LOADING_PLACEHOLDER] }
+  );
 
-  widget.value = this.properties.script;
-  this.size = [400, 300];
+  this.size = [220, 80];
 }
+
+RhaiScriptNode.prototype.onAdded = function (this: any) {
+  const node = this;
+  listScripts()
+    .then((names) => {
+      const values = names.length > 0 ? names : [EMPTY_PLACEHOLDER];
+      const scriptWidget = node.widgets?.find(
+        (w: any) => w.name === "Script" && w.options?.values
+      );
+      if (scriptWidget) {
+        scriptWidget.options.values = values;
+        if (
+          !node.properties.scriptName ||
+          !values.includes(node.properties.scriptName)
+        ) {
+          const initial = names.length > 0 ? names[0] : "";
+          node.properties.scriptName = initial;
+          scriptWidget.value = initial;
+        }
+        node.setDirtyCanvas(true);
+      }
+    })
+    .catch((_e) => {
+      const scriptWidget = node.widgets?.find(
+        (w: any) => w.name === "Script" && w.options?.values
+      );
+      if (scriptWidget) {
+        scriptWidget.options.values = [EMPTY_PLACEHOLDER];
+        node.properties.scriptName = "";
+        scriptWidget.value = "";
+        node.setDirtyCanvas(true);
+      }
+    });
+};
 
 RhaiScriptNode.prototype.onAction = function (this: any) {
   const input = this.getInputData(1);
-  console.log("Run Rhai script with input:", input);
-  // TODO: Invoke Tauri command to execute Rhai script
+  const scriptName = this.properties.scriptName;
+  if (!scriptName || scriptName === LOADING_PLACEHOLDER || scriptName === EMPTY_PLACEHOLDER) {
+    console.warn("Rhai Script node: no script selected");
+    this.setOutputData(1, input);
+    this.triggerSlot(0);
+    return;
+  }
+  console.log("Run Rhai script:", scriptName, "with input:", input);
+  // TODO: Invoke Tauri command to read script and execute Rhai
   this.setOutputData(1, input);
   this.triggerSlot(0);
 };
 
 RhaiScriptNode.title = "Rhai Script";
-RhaiScriptNode.desc = "Execute a Rhai script";
+RhaiScriptNode.desc = "Execute a Rhai script from the scripts directory";
 
 export function register() {
   LiteGraph.registerNodeType("script/rhai", RhaiScriptNode as any);

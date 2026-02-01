@@ -5,6 +5,7 @@ const MAIN_TABS: Tab[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "channels", label: "Channels" },
   { id: "workflow", label: "Workflow Editor" },
+  { id: "scripts", label: "Scripts" },
   { id: "secrets", label: "Secrets" },
   { id: "database", label: "Database" },
   { id: "setup", label: "Setup" },
