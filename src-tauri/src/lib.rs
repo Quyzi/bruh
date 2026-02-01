@@ -5,6 +5,7 @@ use anyhow::Result;
 pub mod auth;
 pub mod config;
 pub mod secrets;
+pub mod setup;
 
 pub use auth::{create_twitch_auth, AuthError, ReqwestTwitchAuth, SharedTwitchAuth, TwitchAuth};
 pub use config::{Config, ConfigError};
@@ -26,7 +27,12 @@ pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
         .manage(config)
         .manage(secrets)
         .manage(db)
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            setup::get_setup_status,
+            setup::save_twitch_credentials,
+            setup::test_twitch_credentials,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 
