@@ -132,3 +132,18 @@ export async function testScript(
 ): Promise<void> {
   return invoke("test_script", { name, input });
 }
+
+// Executor (workflow runner) control
+export type ExecutorState = "stopped" | "running";
+
+export async function getExecutorState(): Promise<ExecutorState> {
+  return invoke<ExecutorState>("get_executor_state");
+}
+
+export async function executorStart(): Promise<void> {
+  return invoke("executor_start");
+}
+
+export async function executorStop(): Promise<void> {
+  return invoke("executor_stop");
+}

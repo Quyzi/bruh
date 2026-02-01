@@ -34,6 +34,8 @@ twitch_api = { version = "0.7.2", features = ["all", "reqwest"] }
 reqwest = { version = "0.12", features = ["json"] }
 url = "2.5.8"
 tauri-plugin-clipboard-manager = "2.3.2"
+tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+futures-util = "0.3"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

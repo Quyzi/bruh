@@ -43,13 +43,17 @@ impl SerializedLink {
     }
 }
 
-/// Serialized form of a litegraph group: title, bounding rect, color, font.
+/// Serialized form of a litegraph group: title, bounding rect, color, font_size.
+/// LiteGraph sends `font_size` (number); we accept optional `font` (string) for older saved files.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedGroup {
     pub title: String,
     pub bounding: [f64; 4],
     pub color: String,
-    pub font: String,
+    #[serde(default)]
+    pub font: Option<String>,
+    #[serde(default)]
+    pub font_size: Option<f64>,
 }
 
 /// Top-level workflow graph as produced by litegraph.js graph.serialize().
@@ -66,4 +70,19 @@ pub struct WorkflowGraph {
     pub extra: Option<Value>,
     #[serde(default)]
     pub version: u32,
+}
+
+impl Default for WorkflowGraph {
+    fn default() -> Self {
+        Self {
+            last_node_id: 0,
+            last_link_id: 0,
+            nodes: Vec::new(),
+            links: Vec::new(),
+            groups: Vec::new(),
+            config: Value::Null,
+            extra: None,
+            version: 0,
+        }
+    }
 }
