@@ -6,6 +6,7 @@ use tauri::State;
 
 use crate::config::expand_tilde;
 use crate::setup::CommandError;
+use crate::workflow::WorkflowGraph;
 use crate::Config;
 
 /// Saves the workflow graph to the configured workflow file.
@@ -46,7 +47,7 @@ pub async fn save_workflow(workflow: Value, config: State<'_, Config>) -> Result
 /// Loads the workflow graph from the configured workflow file.
 /// Returns None if the file doesn't exist or is empty.
 #[tauri::command]
-pub async fn load_workflow(config: State<'_, Config>) -> Result<Option<Value>, CommandError> {
+pub async fn load_workflow(config: State<'_, Config>) -> Result<Option<WorkflowGraph>, CommandError> {
     let path = expand_tilde(&config.workflow);
 
     if !path.exists() {
@@ -74,8 +75,8 @@ pub async fn load_workflow(config: State<'_, Config>) -> Result<Option<Value>, C
         return Ok(None);
     }
 
-    let workflow: Value = serde_json::from_str(contents).map_err(|e| CommandError {
-        message: format!("Failed to parse workflow file: {}", e),
+    let workflow: WorkflowGraph = serde_json::from_str(contents).map_err(|error| CommandError {
+        message: format!("Invalid workflow file: {}", error),
     })?;
 
     tracing::info!("Workflow loaded from {:?}", path);
