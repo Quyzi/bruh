@@ -6,6 +6,7 @@ pub mod auth;
 pub mod config;
 pub mod secrets;
 pub mod setup;
+pub mod workflow;
 
 pub use auth::{create_twitch_auth, AuthError, ReqwestTwitchAuth, SharedTwitchAuth, TwitchAuth};
 pub use config::{Config, ConfigError};
@@ -36,6 +37,8 @@ pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
             secrets::commands::get_secret,
             secrets::commands::set_secret,
             secrets::commands::delete_secret,
+            workflow::commands::save_workflow,
+            workflow::commands::load_workflow,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -47,3 +47,12 @@ export async function setSecret(name: string, value: string): Promise<void> {
 export async function deleteSecret(name: string): Promise<void> {
   return invoke("delete_secret", { name });
 }
+
+// Workflow management
+export async function saveWorkflow(workflow: unknown): Promise<void> {
+  return invoke("save_workflow", { workflow });
+}
+
+export async function loadWorkflow(): Promise<unknown | null> {
+  return invoke<unknown | null>("load_workflow");
+}

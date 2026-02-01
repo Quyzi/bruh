@@ -44,6 +44,13 @@ pub struct Config {
     pub secrets_key: PathBuf,
     /// Path to the encrypted secrets JSON file.
     pub secrets: PathBuf,
+    /// Path to the workflow JSON file.
+    #[serde(default = "default_workflow_path")]
+    pub workflow: PathBuf,
+}
+
+fn default_workflow_path() -> PathBuf {
+    "~/.clawdia/workflow.json".into()
 }
 
 impl Default for Config {
@@ -52,6 +59,7 @@ impl Default for Config {
             database: "~/.clawdia/user.duckdb".into(),
             secrets_key: "~/.clawdia/secrets.key".into(),
             secrets: "~/.clawdia/secrets.json".into(),
+            workflow: default_workflow_path(),
         }
     }
 }
