@@ -1,4 +1,4 @@
-import { onMount, onCleanup, createSignal } from "solid-js";
+import { onMount, onCleanup, createSignal, Show } from "solid-js";
 import { LGraph, LGraphCanvas } from "litegraph.js";
 import "litegraph.js/css/litegraph.css";
 import { configureLiteGraphTheme, registerAllNodes } from "../nodes";
@@ -10,24 +10,20 @@ export function WorkflowView() {
   let graphCanvas: LGraphCanvas | undefined;
   const [dirty, setDirty] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
-  const [saveStatus, setSaveStatus] = createSignal<string | null>(null);
+  const [error, setError] = createSignal<string | null>(null);
 
   const handleSave = async () => {
     if (!graph || saving()) return;
 
+    setError(null);
     setSaving(true);
-    setSaveStatus(null);
-
     try {
       const data = graph.serialize();
       await saveWorkflow(data);
       setDirty(false);
-      setSaveStatus("Saved");
-      setTimeout(() => setSaveStatus(null), 2000);
-    } catch (err) {
-      console.error("Failed to save workflow:", err);
-      setSaveStatus("Error saving");
-      setTimeout(() => setSaveStatus(null), 3000);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      setError(err.message ?? "Failed to save workflow");
     } finally {
       setSaving(false);
     }
@@ -35,6 +31,7 @@ export function WorkflowView() {
 
   const handleReload = async () => {
     if (!graph || !graphCanvas) return;
+    setError(null);
     try {
       const savedWorkflow = await loadWorkflow();
       if (savedWorkflow !== null && savedWorkflow !== undefined) {
@@ -42,8 +39,9 @@ export function WorkflowView() {
         setDirty(false);
         graphCanvas.setDirty(true, true);
       }
-    } catch (err) {
-      console.error("Failed to reload workflow:", err);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      setError(err.message ?? "Failed to reload workflow");
     }
   };
 
@@ -77,12 +75,16 @@ export function WorkflowView() {
     // Create canvas
     graphCanvas = new LGraphCanvas(canvasRef, graph, {
       autoresize: true,
-    });
+      render_canvas_border: false,
+    } as { autoresize: boolean; render_canvas_border?: boolean });
 
     // Configure canvas styling
     graphCanvas.highquality_render = true;
     graphCanvas.always_render_background = true;
+    graphCanvas.render_canvas_border = false;
     graphCanvas.render_shadows = true;
+    // Match LiteGraph's visible-area fill to our background so no lighter "box" shows
+    (graphCanvas as { clear_background_color?: string }).clear_background_color = "#1a1a1a";
     graphCanvas.render_connections_shadows = false;
     graphCanvas.render_curved_connections = true;
     graphCanvas.render_connection_arrows = false;
@@ -92,37 +94,33 @@ export function WorkflowView() {
 
     // Custom background drawing for our dark theme.
     // We draw after LiteGraph's drawGroups, so we must redraw groups on top of our background.
+    // Fill in pixel space so we cover the whole canvas (LiteGraph's ctx is in graph space).
     graphCanvas.onDrawBackground = (ctx: CanvasRenderingContext2D) => {
-      // Fill background
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#1a1a1a";
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-      // Draw grid
-      const gridSize = 20;
-      ctx.strokeStyle = "#252525";
-      ctx.lineWidth = 1;
-
-      const offset = graphCanvas!.ds.offset;
-      const scale = graphCanvas!.ds.scale;
-
-      const startX = (-offset[0] / scale) % gridSize;
-      const startY = (-offset[1] / scale) % gridSize;
-
-      ctx.beginPath();
-      for (let x = startX; x < ctx.canvas.width / scale; x += gridSize) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, ctx.canvas.height / scale);
-      }
-      for (let y = startY; y < ctx.canvas.height / scale; y += gridSize) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(ctx.canvas.width / scale, y);
-      }
-      ctx.stroke();
+      ctx.restore();
 
       // Redraw groups on top of our background (LiteGraph draws them before this callback)
       if (!(graphCanvas as { live_mode?: boolean }).live_mode) {
         graphCanvas!.drawGroups(canvasRef!, ctx);
       }
+    };
+
+    // Cover the canvas edge so any border (LiteGraph or browser) is hidden
+    graphCanvas.onDrawForeground = (ctx: CanvasRenderingContext2D) => {
+      const w = ctx.canvas.width;
+      const h = ctx.canvas.height;
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = "#1a1a1a";
+      const d = 2; // cover 2px edge
+      ctx.fillRect(0, 0, w, d);
+      ctx.fillRect(0, h - d, w, d);
+      ctx.fillRect(0, d, d, h - 2 * d);
+      ctx.fillRect(w - d, d, d, h - 2 * d);
+      ctx.restore();
     };
 
     // Handle resize
@@ -163,26 +161,26 @@ export function WorkflowView() {
   });
 
   return (
-    <div class="flex flex-col h-full w-full overflow-hidden">
+    <div class="workflow-editor flex flex-col h-full w-full overflow-hidden">
       {/* Toolbar */}
+      <Show when={error()}>
+        <div class="px-4 py-2 bg-red-500/10 border-b border-red-500/30 text-red-400 text-sm">
+          {error()}
+        </div>
+      </Show>
       <div class="flex items-center gap-2 px-3 py-2 bg-bg-secondary border-b border-border">
         <button
-          class="px-3 py-1.5 text-sm bg-bg-tertiary hover:bg-border rounded text-text-primary transition-colors disabled:opacity-50"
+          type="button"
           onClick={handleSave}
           disabled={saving()}
+          class={`py-1.5 px-4 rounded-md disabled:opacity-50 text-sm font-medium transition-colors cursor-pointer shadow-lg ${
+            dirty()
+              ? "bg-accent hover:bg-accent-hover text-white"
+              : "bg-bg-tertiary hover:bg-border text-text-secondary"
+          }`}
         >
-          {saving() ? "Saving..." : "Save"}
+          {saving() ? "Saving…" : "Save"}
         </button>
-        {dirty() && (
-          <span class="text-xs text-amber-400" title="Unsaved changes">
-            • Unsaved
-          </span>
-        )}
-        {saveStatus() && (
-          <span class={`text-xs ${saveStatus() === "Saved" ? "text-success" : "text-error"}`}>
-            {saveStatus()}
-          </span>
-        )}
         <button
           class="px-3 py-1.5 text-sm bg-bg-tertiary hover:bg-border rounded text-text-primary transition-colors"
           onClick={handleReload}
@@ -218,11 +216,12 @@ export function WorkflowView() {
         </span>
       </div>
 
-      {/* Canvas container */}
-      <div class="flex-1 relative overflow-hidden">
+      {/* Canvas container - match canvas background so no edge is visible */}
+      <div class="workflow-canvas-container flex-1 relative overflow-hidden bg-bg-primary">
         <canvas
           ref={canvasRef}
-          class="absolute inset-0"
+          class="workflow-canvas absolute inset-0 w-full h-full block"
+          style={{ border: "none", outline: "none" }}
         />
       </div>
     </div>
