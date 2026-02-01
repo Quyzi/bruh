@@ -18,7 +18,7 @@ export function TabBar(props: TabBarProps) {
       <For each={props.tabs}>
         {(tab) => (
           <button
-            class={`px-4 py-2 rounded-md text-sm transition-all cursor-pointer ${
+            class={`px-3 py-1 rounded text-sm transition-all cursor-pointer ${
               props.activeTab === tab.id
                 ? "bg-accent text-white"
                 : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"

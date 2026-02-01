@@ -67,6 +67,8 @@ pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
             scripts::commands::write_script,
             scripts::commands::delete_script,
             scripts::commands::rename_script,
+            scripts::commands::execute_script,
+            scripts::commands::test_script,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4,6 +4,8 @@ use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
+use rhai::{Dynamic, Engine, Scope};
+use rhai::serde::to_dynamic;
 use tauri::State;
 
 use crate::config::expand_tilde;
@@ -192,4 +194,56 @@ pub async fn rename_script(
 
     tracing::debug!("Script renamed: {:?} -> {:?}", old_path, new_path);
     Ok(())
+}
+
+/// Executes a Rhai script by name with optional JSON input; returns the script result as JSON.
+#[tauri::command]
+pub async fn execute_script(
+    name: String,
+    input: Option<serde_json::Value>,
+    config: State<'_, Config>,
+) -> Result<serde_json::Value, CommandError> {
+    let content = read_script(name.clone(), config).await?;
+
+    let input_dynamic: Dynamic = to_dynamic(input.unwrap_or(serde_json::Value::Null))
+        .map_err(|error| CommandError {
+            message: format!("Invalid script input: {}", error),
+        })?;
+
+    let engine = Engine::new();
+    let mut scope = Scope::new();
+    scope.push("input", input_dynamic);
+
+    let result: Dynamic = engine.eval_with_scope(&mut scope, &content).map_err(|error| {
+        CommandError {
+            message: format!("Script error: {}", error),
+        }
+    })?;
+
+    let value = serde_json::to_value(&result).map_err(|error| CommandError {
+        message: format!("Failed to serialize result: {}", error),
+    })?;
+
+    Ok(value)
+}
+
+/// Runs a script with optional JSON input and logs the result to the app log viewer.
+#[tauri::command]
+pub async fn test_script(
+    name: String,
+    input: Option<serde_json::Value>,
+    config: State<'_, Config>,
+) -> Result<(), CommandError> {
+    match execute_script(name.clone(), input, config).await {
+        Ok(result) => {
+            let output = serde_json::to_string_pretty(&result)
+                .unwrap_or_else(|_| format!("{:?}", result));
+            tracing::info!(target: "script_test", script = %name, "Script test result:\n{}", output);
+            Ok(())
+        }
+        Err(error) => {
+            tracing::error!(target: "script_test", script = %name, "Script test error: {}", error.message);
+            Err(error)
+        }
+    }
 }

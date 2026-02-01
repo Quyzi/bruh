@@ -8,18 +8,20 @@ export function WorkflowView() {
   let canvasRef: HTMLCanvasElement | undefined;
   let graph: LGraph | undefined;
   let graphCanvas: LGraphCanvas | undefined;
+  const [dirty, setDirty] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
   const [saveStatus, setSaveStatus] = createSignal<string | null>(null);
 
   const handleSave = async () => {
     if (!graph || saving()) return;
-    
+
     setSaving(true);
     setSaveStatus(null);
-    
+
     try {
       const data = graph.serialize();
       await saveWorkflow(data);
+      setDirty(false);
       setSaveStatus("Saved");
       setTimeout(() => setSaveStatus(null), 2000);
     } catch (err) {
@@ -28,6 +30,20 @@ export function WorkflowView() {
       setTimeout(() => setSaveStatus(null), 3000);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleReload = async () => {
+    if (!graph || !graphCanvas) return;
+    try {
+      const savedWorkflow = await loadWorkflow();
+      if (savedWorkflow !== null && savedWorkflow !== undefined) {
+        graph.configure(savedWorkflow as object);
+        setDirty(false);
+        graphCanvas.setDirty(true, true);
+      }
+    } catch (err) {
+      console.error("Failed to reload workflow:", err);
     }
   };
 
@@ -48,11 +64,15 @@ export function WorkflowView() {
       const savedWorkflow = await loadWorkflow();
       if (savedWorkflow !== null && savedWorkflow !== undefined) {
         graph.configure(savedWorkflow as object);
+        setDirty(false);
         console.log("Loaded existing workflow");
       }
     } catch (err) {
       console.error("Failed to load workflow:", err);
     }
+
+    // Mark dirty when graph changes (on_change exists at runtime; not in litegraph.d.ts)
+    (graph as { on_change?: (g: LGraph) => void }).on_change = () => setDirty(true);
 
     // Create canvas
     graphCanvas = new LGraphCanvas(canvasRef, graph, {
@@ -145,11 +165,23 @@ export function WorkflowView() {
         >
           {saving() ? "Saving..." : "Save"}
         </button>
+        {dirty() && (
+          <span class="text-xs text-amber-400" title="Unsaved changes">
+            • Unsaved
+          </span>
+        )}
         {saveStatus() && (
           <span class={`text-xs ${saveStatus() === "Saved" ? "text-success" : "text-error"}`}>
             {saveStatus()}
           </span>
         )}
+        <button
+          class="px-3 py-1.5 text-sm bg-bg-tertiary hover:bg-border rounded text-text-primary transition-colors"
+          onClick={handleReload}
+          title="Reload workflow from disk"
+        >
+          Reload
+        </button>
         <button
           class="px-3 py-1.5 text-sm bg-bg-tertiary hover:bg-border rounded text-text-primary transition-colors"
           onClick={() => {

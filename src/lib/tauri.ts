@@ -118,3 +118,17 @@ export async function deleteScript(name: string): Promise<void> {
 export async function renameScript(oldName: string, newName: string): Promise<void> {
   return invoke("rename_script", { oldName, newName });
 }
+
+export async function executeScript(
+  name: string,
+  input: unknown
+): Promise<unknown> {
+  return invoke("execute_script", { name, input });
+}
+
+export async function testScript(
+  name: string,
+  input: unknown
+): Promise<void> {
+  return invoke("test_script", { name, input });
+}

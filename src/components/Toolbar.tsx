@@ -18,12 +18,13 @@ interface ToolbarProps {
 
 export function Toolbar(props: ToolbarProps) {
   return (
-    <header class="flex items-center h-12 min-h-12 bg-bg-secondary border-b border-border px-4 gap-4">
-      <div class="flex items-center gap-2 pr-4 border-r border-border">
+    <header class="flex items-center shrink-0 h-9 min-h-9 bg-bg-secondary border-b border-border pl-0 pr-2 gap-2">
+      <div class="relative pr-2 border-r border-border self-stretch w-9 h-9 shrink-0 overflow-hidden rounded">
         <img
           src={logo}
           alt="Clawdia"
-          class="h-8 w-8 object-cover rounded-md"
+          class="absolute inset-0 block h-full w-full object-cover object-center"
+          style={{ transform: "scale(1.4)" }}
         />
       </div>
       <TabBar

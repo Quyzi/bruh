@@ -1,4 +1,4 @@
-import { createSignal, Match, Switch, onMount, Show } from "solid-js";
+import { createSignal } from "solid-js";
 import { Layout } from "./components/Layout";
 import { DashboardView } from "./views/DashboardView";
 import { ChannelsView } from "./views/ChannelsView";
@@ -126,29 +126,28 @@ function App() {
       statusExpanded={statusExpanded()}
       onStatusToggle={() => setStatusExpanded(!statusExpanded())}
     >
-      <Switch>
-        <Match when={activeTab() === "dashboard"}>
-          <DashboardView />
-        </Match>
-        <Match when={activeTab() === "channels"}>
-          <ChannelsView />
-        </Match>
-        <Match when={activeTab() === "workflow"}>
-          <WorkflowView />
-        </Match>
-        <Match when={activeTab() === "scripts"}>
-          <ScriptsView />
-        </Match>
-        <Match when={activeTab() === "secrets"}>
-          <SecretsView />
-        </Match>
-        <Match when={activeTab() === "database"}>
-          <DatabaseView />
-        </Match>
-        <Match when={activeTab() === "setup"}>
-          <SetupView oauthStatus={oauthStatus()} onOauthStatusChange={setOauthStatus} />
-        </Match>
-      </Switch>
+      {/* All views rendered but only active one visible – keeps state when switching tabs */}
+      <div class={activeTab() === "dashboard" ? "h-full flex flex-col min-h-0" : "hidden"}>
+        <DashboardView />
+      </div>
+      <div class={activeTab() === "channels" ? "h-full flex flex-col min-h-0" : "hidden"}>
+        <ChannelsView />
+      </div>
+      <div class={activeTab() === "workflow" ? "h-full flex flex-col min-h-0" : "hidden"}>
+        <WorkflowView />
+      </div>
+      <div class={activeTab() === "scripts" ? "h-full flex flex-col min-h-0" : "hidden"}>
+        <ScriptsView />
+      </div>
+      <div class={activeTab() === "secrets" ? "h-full flex flex-col min-h-0" : "hidden"}>
+        <SecretsView />
+      </div>
+      <div class={activeTab() === "database" ? "h-full flex flex-col min-h-0" : "hidden"}>
+        <DatabaseView />
+      </div>
+      <div class={activeTab() === "setup" ? "h-full flex flex-col min-h-0" : "hidden"}>
+        <SetupView oauthStatus={oauthStatus()} onOauthStatusChange={setOauthStatus} />
+      </div>
     </Layout>
   );
 }

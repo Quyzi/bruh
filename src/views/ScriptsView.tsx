@@ -7,6 +7,7 @@ import {
   writeScript,
   deleteScript,
   renameScript,
+  testScript,
 } from "../lib/tauri";
 
 const DEFAULT_CONTENT = "// Rhai script\nlet result = input;\nresult\n";
@@ -23,6 +24,43 @@ export function ScriptsView() {
   registerRhaiLanguage();
 
   const [saving, setSaving] = createSignal(false);
+  const [dirty, setDirty] = createSignal(false);
+  const [pendingSwitchTo, setPendingSwitchTo] = createSignal<string | null>(null);
+
+  const [testModalOpen, setTestModalOpen] = createSignal(false);
+  const [testInputJson, setTestInputJson] = createSignal("{}");
+  const [testRunning, setTestRunning] = createSignal(false);
+  const [testError, setTestError] = createSignal<string | null>(null);
+
+  const openTestModal = () => setTestModalOpen(true);
+  const closeTestModal = () => {
+    setTestModalOpen(false);
+    setTestError(null);
+  };
+
+  const handleTestRun = async () => {
+    const name = selectedName();
+    if (!name) return;
+    const raw = testInputJson().trim() || "{}";
+    let input: unknown;
+    try {
+      input = JSON.parse(raw);
+    } catch {
+      setTestError("Invalid JSON");
+      return;
+    }
+    setTestError(null);
+    setTestRunning(true);
+    try {
+      await testScript(name, input);
+      closeTestModal();
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      setTestError(err.message ?? "Script test failed");
+    } finally {
+      setTestRunning(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!editorInstance) return;
@@ -34,6 +72,7 @@ export function ScriptsView() {
     try {
       await writeScript(name, value);
       setCurrentContent(value);
+      setDirty(false);
     } catch (e: unknown) {
       const err = e as { message?: string };
       setError(err.message ?? "Failed to save script");
@@ -59,6 +98,11 @@ export function ScriptsView() {
       automaticLayout: true,
       tabSize: 2,
       wordWrap: "on",
+    });
+    editorInstance.onDidChangeModelContent(() => {
+      if (!editorInstance) return;
+      const value = editorInstance.getModel()?.getValue() ?? "";
+      setDirty(value !== currentContent());
     });
     return editorInstance;
   };
@@ -95,13 +139,14 @@ export function ScriptsView() {
     }
   });
 
-  const handleScriptSelect = async (name: string) => {
-    const container = editorContainer();
+  const switchToScript = async (name: string) => {
     setSelectedName(name);
+    setDirty(false);
     setError(null);
     try {
       const content = await readScript(name);
       setCurrentContent(content);
+      const container = editorContainer();
       if (container) {
         if (editorInstance) {
           updateEditorContent(content);
@@ -115,12 +160,39 @@ export function ScriptsView() {
     }
   };
 
+  const handleScriptSelect = async (name: string) => {
+    const current = selectedName();
+    if (current !== name && dirty()) {
+      setPendingSwitchTo(name);
+      return;
+    }
+    await switchToScript(name);
+  };
+
+  const handleSaveAndSwitch = async () => {
+    const target = pendingSwitchTo();
+    if (!target) return;
+    await handleSave();
+    setPendingSwitchTo(null);
+    await switchToScript(target);
+  };
+
+  const handleDiscardAndSwitch = async () => {
+    const target = pendingSwitchTo();
+    if (!target) return;
+    setPendingSwitchTo(null);
+    setDirty(false);
+    await switchToScript(target);
+  };
+
   const handleEditorMount = (el: HTMLDivElement) => {
     setEditorContainer(el);
     const name = selectedName();
     const content = currentContent();
-    if (name && content) {
+    // Create editor when we have a selected script (content may be "" before load or for empty script)
+    if (name) {
       createEditor(el, content);
+      setDirty(false);
     }
   };
 
@@ -178,6 +250,98 @@ export function ScriptsView() {
 
   return (
     <div class="flex flex-col h-full">
+      <Show when={pendingSwitchTo()}>
+        {(target) => (
+          <div
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            role="dialog"
+            aria-labelledby="save-before-switch-title"
+            aria-modal="true"
+          >
+            <div class="bg-bg-secondary border border-border rounded-lg shadow-xl p-4 max-w-sm w-full mx-4">
+              <h2
+                id="save-before-switch-title"
+                class="text-text-primary font-medium text-base mb-2"
+              >
+                Unsaved changes
+              </h2>
+              <p class="text-text-secondary text-sm mb-4">
+                Save changes to "{selectedName()}" before switching to "{target()}"?
+              </p>
+              <div class="flex justify-end gap-2 flex-nowrap">
+                <button
+                  type="button"
+                  class="shrink-0 px-3 py-1.5 text-sm bg-bg-tertiary hover:bg-border rounded text-text-primary transition-colors cursor-pointer"
+                  onClick={() => setPendingSwitchTo(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="shrink-0 px-3 py-1.5 text-sm bg-bg-tertiary hover:bg-border rounded text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                  onClick={handleDiscardAndSwitch}
+                >
+                  Discard and switch
+                </button>
+                <button
+                  type="button"
+                  class="shrink-0 px-3 py-1.5 text-sm bg-accent hover:bg-accent-hover text-white rounded transition-colors cursor-pointer"
+                  onClick={handleSaveAndSwitch}
+                >
+                  Save and switch
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Show>
+      <Show when={testModalOpen()}>
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          role="dialog"
+          aria-labelledby="test-script-title"
+          aria-modal="true"
+        >
+          <div class="bg-bg-secondary border border-border rounded-lg shadow-xl p-4 max-w-md w-full mx-4">
+            <h2
+              id="test-script-title"
+              class="text-text-primary font-medium text-base mb-2"
+            >
+              Test script
+            </h2>
+            <p class="text-text-secondary text-sm mb-2">
+              JSON input (available as <code class="text-text-primary">input</code> in the script):
+            </p>
+            <textarea
+              value={testInputJson()}
+              onInput={(e) => setTestInputJson(e.currentTarget.value)}
+              class="w-full h-32 px-3 py-2 rounded-md bg-bg-tertiary border border-border text-text-primary font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent"
+              placeholder="{}"
+              spellcheck={false}
+            />
+            <Show when={testError()}>
+              <p class="text-error text-sm mb-2">{testError()}</p>
+            </Show>
+            <div class="flex justify-end gap-2 flex-nowrap mt-3">
+              <button
+                type="button"
+                class="shrink-0 px-3 py-1.5 text-sm bg-bg-tertiary hover:bg-border rounded text-text-primary transition-colors cursor-pointer"
+                onClick={closeTestModal}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="shrink-0 px-3 py-1.5 text-sm bg-accent hover:bg-accent-hover text-white rounded transition-colors cursor-pointer disabled:opacity-50"
+                onClick={handleTestRun}
+                disabled={testRunning()}
+              >
+                {testRunning() ? "Running…" : "Run test"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
       <Show when={error()}>
         <div class="px-4 py-2 bg-red-500/10 border-b border-red-500/30 text-red-400 text-sm">
           {error()}
@@ -240,18 +404,31 @@ export function ScriptsView() {
               </div>
             }
           >
-            <div class="flex flex-col flex-1 min-h-0">
-              <div class="shrink-0 flex justify-end px-2 py-2 border-b border-border bg-bg-secondary">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving()}
-                  class="py-1.5 px-4 rounded-md bg-accent hover:bg-accent-hover disabled:opacity-50 text-white text-sm font-medium transition-colors cursor-pointer"
-                >
-                  {saving() ? "Saving…" : "Save"}
-                </button>
-              </div>
+            <div class="relative flex-1 min-h-0 flex flex-col">
               <div class="flex-1 min-h-0" ref={handleEditorMount} />
+              <div class="absolute top-2 right-2 flex items-center gap-2 pointer-events-none">
+                <div class="pointer-events-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving()}
+                    class={`py-1.5 px-4 rounded-md disabled:opacity-50 text-sm font-medium transition-colors cursor-pointer shadow-lg ${
+                      dirty()
+                        ? "bg-accent hover:bg-accent-hover text-white"
+                        : "bg-bg-tertiary hover:bg-border text-text-secondary"
+                    }`}
+                  >
+                    {saving() ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openTestModal}
+                    class="shrink-0 py-1.5 px-4 rounded-md text-sm font-medium transition-colors cursor-pointer shadow-lg bg-success text-white hover:brightness-110"
+                  >
+                    Test
+                  </button>
+                </div>
+              </div>
             </div>
           </Show>
         </div>

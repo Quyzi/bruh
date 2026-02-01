@@ -1,11 +1,12 @@
 import { LiteGraph } from "litegraph.js";
-import { listScripts } from "../../lib/tauri";
+import { listScripts, executeScript } from "../../lib/tauri";
 
 const LOADING_PLACEHOLDER = "(loading…)";
 const EMPTY_PLACEHOLDER = "(no scripts)";
 
 export function RhaiScriptNode(this: any) {
   this.addInput("input", LiteGraph.ACTION);
+  this.addInput("data", "object");
   this.addOutput("output", LiteGraph.EVENT);
   this.properties = { scriptName: "" };
 
@@ -20,7 +21,7 @@ export function RhaiScriptNode(this: any) {
     { values: [LOADING_PLACEHOLDER] }
   );
 
-  this.size = [220, 80];
+  this.size = [220, 100];
 }
 
 RhaiScriptNode.prototype.onAdded = function (this: any) {
@@ -57,18 +58,22 @@ RhaiScriptNode.prototype.onAdded = function (this: any) {
     });
 };
 
-RhaiScriptNode.prototype.onAction = function (this: any) {
-  const input = this.getInputData(1);
+RhaiScriptNode.prototype.onAction = async function (this: any) {
+  const inputData = this.getInputData(1);
   const scriptName = this.properties.scriptName;
   if (!scriptName || scriptName === LOADING_PLACEHOLDER || scriptName === EMPTY_PLACEHOLDER) {
     console.warn("Rhai Script node: no script selected");
-    this.setOutputData(1, input);
+    this.setOutputData(1, inputData);
     this.triggerSlot(0);
     return;
   }
-  console.log("Run Rhai script:", scriptName, "with input:", input);
-  // TODO: Invoke Tauri command to read script and execute Rhai
-  this.setOutputData(1, input);
+  try {
+    const result = await executeScript(scriptName, inputData ?? null);
+    this.setOutputData(1, result);
+  } catch (error) {
+    console.error("Rhai Script node error:", error);
+    this.setOutputData(1, inputData);
+  }
   this.triggerSlot(0);
 };
 
