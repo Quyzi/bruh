@@ -14,7 +14,6 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt().init();
 
     let config = Config::load_or_create_default()?;
-
     let secrets = load_or_create_secrets(&config)?;
     let db = load_or_create_db(&config).await?;
 
@@ -53,6 +52,14 @@ async fn load_or_create_db(config: &Config) -> Result<Database> {
         .path(&config.database)
         .open()
         .await?;
+
+    let _ = &client
+        .conn(|conn| {
+            static QUERY: &str = "CALL start_ui_server();";
+            conn.execute(QUERY, [])
+        })
+        .await?;
+    tracing::info!("Started duckdb ui at http://localhost:4213");
 
     if is_new {
         tracing::info!("Created new DuckDB database at {:?}", db_path);
