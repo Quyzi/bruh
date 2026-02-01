@@ -2,10 +2,12 @@ import { TabBar, Tab } from "./TabBar";
 import logo from "../assets/clawde.jpg";
 
 const MAIN_TABS: Tab[] = [
-  { id: "setup", label: "Initial Setup" },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "channels", label: "Channels" },
   { id: "workflow", label: "Workflow Editor" },
   { id: "secrets", label: "Secrets" },
   { id: "database", label: "Database" },
+  { id: "setup", label: "Setup" },
 ];
 
 interface ToolbarProps {
