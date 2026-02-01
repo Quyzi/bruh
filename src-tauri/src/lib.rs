@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use tokio::sync::Mutex;
 
 pub mod config;
 pub mod secrets;
@@ -9,14 +8,15 @@ pub mod secrets;
 pub use config::{Config, ConfigError};
 pub use secrets::{SecureStoreConfig, SecureStoreProvider};
 
-pub type Database = Arc<Mutex<async_duckdb::Connection>>;
+pub type Database = Arc<async_duckdb::Client>;
+pub type Secrets = Arc<SecureStoreProvider>;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-pub fn run(config: Config, secrets: Arc<SecureStoreProvider>, db: Database) -> Result<()> {
+pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
     tracing::info!("🦀 Starting Clawdia!");
 
     tauri::Builder::default()
