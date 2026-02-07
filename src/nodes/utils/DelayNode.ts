@@ -7,6 +7,7 @@ export function DelayNode(this: any) {
   this.addWidget("number", "Delay (ms)", this.properties.delay, (v: number) => {
     this.properties.delay = v;
   }, { min: 0, max: 60000, step: 100 });
+  this.serialize_widgets = true;
 }
 
 DelayNode.prototype.onAction = function(this: any) {

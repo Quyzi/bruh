@@ -1,7 +1,9 @@
 import { LiteGraph } from "litegraph.js";
 
+// Eventsub nodes
+import { register as registerChatMessage } from "./eventsub/chat_message";
+
 // Twitch nodes
-import { registerAllTwitchEvents } from "./twitch/events";
 import { register as registerSendChat } from "./twitch/SendChatNode";
 
 // Script nodes
@@ -39,8 +41,8 @@ export function configureLiteGraphTheme() {
  * Register all custom nodes with LiteGraph
  */
 export function registerAllNodes() {
-  // Twitch Events (all EventSub event types)
-  registerAllTwitchEvents();
+  // Eventsub
+  registerChatMessage();
 
   // Twitch Actions
   registerSendChat();

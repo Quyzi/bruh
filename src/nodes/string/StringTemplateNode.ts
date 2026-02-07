@@ -9,6 +9,7 @@ export function StringTemplateNode(this: any) {
   this.addWidget("text", "Template", this.properties.template, (v: string) => {
     this.properties.template = v;
   });
+  this.serialize_widgets = true;
 }
 
 StringTemplateNode.prototype.onAction = function(this: any) {

@@ -5,9 +5,12 @@ const LOADING_PLACEHOLDER = "(loading…)";
 const EMPTY_PLACEHOLDER = "(no scripts)";
 
 export function RhaiScriptNode(this: any) {
-  this.addInput("input", LiteGraph.ACTION);
-  this.addInput("data", "object");
-  this.addOutput("output", LiteGraph.EVENT);
+  this.addInput("input 1", "string");
+  this.addInput("input 2", "string");
+  this.addInput("input 3", "string");
+  this.addInput("input 4", "string");
+  this.addInput("input 5", "string");
+  this.addOutput("output", "string");
   this.properties = { scriptName: "" };
 
   // Combo needs at least one value; we replace with real list in onAddedToGraph
@@ -22,6 +25,7 @@ export function RhaiScriptNode(this: any) {
   );
 
   this.size = [220, 100];
+  this.serialize_widgets = true;
 }
 
 RhaiScriptNode.prototype.onAdded = function (this: any) {
@@ -41,6 +45,8 @@ RhaiScriptNode.prototype.onAdded = function (this: any) {
           const initial = names.length > 0 ? names[0] : "";
           node.properties.scriptName = initial;
           scriptWidget.value = initial;
+        } else {
+          scriptWidget.value = node.properties.scriptName;
         }
         node.setDirtyCanvas(true);
       }

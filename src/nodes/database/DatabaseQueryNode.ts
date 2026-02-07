@@ -9,6 +9,7 @@ export function DatabaseQueryNode(this: any) {
   this.addWidget("text", "Query", this.properties.query, (v: string) => {
     this.properties.query = v;
   });
+  this.serialize_widgets = true;
 }
 
 DatabaseQueryNode.prototype.onAction = function(this: any) {

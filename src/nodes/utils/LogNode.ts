@@ -9,6 +9,7 @@ export function LogNode(this: any) {
   this.addWidget("text", "Prefix", this.properties.prefix, (v: string) => {
     this.properties.prefix = v;
   });
+  this.serialize_widgets = true;
 }
 
 LogNode.prototype.onAction = function(this: any) {
