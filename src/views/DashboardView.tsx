@@ -90,8 +90,7 @@ export function DashboardView() {
             class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-sm font-medium"
             classList={{
               "bg-success/15 text-success": isRunning(),
-              "bg-bg-tertiary text-text-secondary": isStopped(),
-              "bg-bg-tertiary text-text-secondary": currentStatus() === null,
+              "bg-bg-tertiary text-text-secondary": !isRunning(),
             }}
           >
             <span

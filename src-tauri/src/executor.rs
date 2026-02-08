@@ -17,8 +17,10 @@ use crate::config::Config;
 use crate::setup::CommandError;
 use crate::Secrets;
 
-/// Interval at which the token refresher runs (refresh before expiry).
-const TOKEN_REFRESH_INTERVAL_SECS: u64 = 30 * 60; // 30 minutes
+/// Minimum interval between token refreshes (5 minutes).
+const TOKEN_REFRESH_MIN_INTERVAL_SECS: u64 = 5 * 60;
+/// Fraction of token lifespan after which we refresh (75%).
+const TOKEN_REFRESH_LIFESPAN_FRACTION: u64 = 75;
 
 /// Runtime state of the executor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -129,14 +131,10 @@ impl Executor {
     }
 }
 
-/// Background loop: periodically refresh token and persist to secrets.
+/// Background loop: refresh token on startup, then every max(5 min, 75% of token lifespan).
 /// If the auth has no token in memory, loads from secrets first (same as EventSub).
 async fn token_refresher_loop(auth: Arc<ReqwestTwitchAuth>, secrets: Secrets) {
-    let mut interval =
-        tokio::time::interval(std::time::Duration::from_secs(TOKEN_REFRESH_INTERVAL_SECS));
-    interval.tick().await;
     loop {
-        interval.tick().await;
         let token = match auth.get_token().await {
             Ok(t) => t,
             Err(AuthError::NotAuthorized) => {
@@ -146,26 +144,41 @@ async fn token_refresher_loop(auth: Arc<ReqwestTwitchAuth>, secrets: Secrets) {
                             Ok(t) => t,
                             Err(e) => {
                                 tracing::warn!("Token refresher: failed to get token after load: {}", e);
+                                sleep_and_retry().await;
                                 continue;
                             }
                         }
                     } else {
+                        sleep_and_retry().await;
                         continue;
                     }
                 } else {
                     tracing::warn!("Token refresher: no token in secrets");
+                    sleep_and_retry().await;
                     continue;
                 }
             }
             Err(e) => {
                 tracing::warn!("Token refresher: failed to get token: {}", e);
+                sleep_and_retry().await;
                 continue;
             }
         };
+
         if let Err(error) = save_token_to_secrets(secrets.as_ref(), &token) {
             tracing::warn!("Token refresher: failed to save token to secrets: {}", error);
         }
+
+        let lifespan_secs = token.expires_in().as_secs();
+        let refresh_after_secs = (lifespan_secs * TOKEN_REFRESH_LIFESPAN_FRACTION / 100)
+            .max(TOKEN_REFRESH_MIN_INTERVAL_SECS);
+        tokio::time::sleep(std::time::Duration::from_secs(refresh_after_secs)).await;
     }
+}
+
+/// Sleeps for the minimum refresh interval when token is unavailable, then retries.
+async fn sleep_and_retry() {
+    tokio::time::sleep(std::time::Duration::from_secs(TOKEN_REFRESH_MIN_INTERVAL_SECS)).await;
 }
 
 /// EventSub WebSocket URL.

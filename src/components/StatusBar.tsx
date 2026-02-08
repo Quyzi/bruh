@@ -147,8 +147,8 @@ export function StatusBar(props: StatusBarProps) {
       ]);
     });
 
-    // Periodically check auth status (every 30 seconds)
-    const authCheckInterval = setInterval(checkAuthStatus, 30000);
+    // Periodically check auth status (every 5 minutes, aligned with backend token refresh)
+    const authCheckInterval = setInterval(checkAuthStatus, 5 * 60 * 1000);
 
     onCleanup(() => {
       unlisten();

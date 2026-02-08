@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
+import { createSignal, createEffect, untrack, onMount, onCleanup, For, Show } from "solid-js";
 import * as monaco from "monaco-editor";
 import { registerRhaiLanguage, RHAI_LANGUAGE_ID } from "../lib/rhaiMonaco";
 import {
@@ -12,6 +12,14 @@ import {
 
 const DEFAULT_CONTENT = "// Rhai script\nlet result = input;\nresult\n";
 
+const DEFAULT_TEST_INPUT_JSON = `{
+  "input1": "",
+  "input2": "",
+  "input3": "",
+  "input4": "",
+  "input5": ""
+}`;
+
 export function ScriptsView() {
   const [scriptNames, setScriptNames] = createSignal<string[]>([]);
   const [selectedName, setSelectedName] = createSignal<string | null>(null);
@@ -21,6 +29,9 @@ export function ScriptsView() {
   const [editorContainer, setEditorContainer] = createSignal<HTMLDivElement | null>(null);
   let editorInstance: monaco.editor.IStandaloneCodeEditor | null = null;
 
+  const [testEditorContainer, setTestEditorContainer] = createSignal<HTMLDivElement | null>(null);
+  let testEditorInstance: monaco.editor.IStandaloneCodeEditor | null = null;
+
   registerRhaiLanguage();
 
   const [saving, setSaving] = createSignal(false);
@@ -28,7 +39,7 @@ export function ScriptsView() {
   const [pendingSwitchTo, setPendingSwitchTo] = createSignal<string | null>(null);
 
   const [testModalOpen, setTestModalOpen] = createSignal(false);
-  const [testInputJson, setTestInputJson] = createSignal("{}");
+  const [testInputJson, setTestInputJson] = createSignal(DEFAULT_TEST_INPUT_JSON);
   const [testRunning, setTestRunning] = createSignal(false);
   const [testError, setTestError] = createSignal<string | null>(null);
 
@@ -38,10 +49,40 @@ export function ScriptsView() {
     setTestError(null);
   };
 
+  createEffect(() => {
+    const open = testModalOpen();
+    const container = testEditorContainer();
+    if (open && container) {
+      const initialValue = untrack(() => testInputJson());
+      testEditorInstance = monaco.editor.create(container, {
+        value: initialValue,
+        language: "json",
+        theme: "vs-dark",
+        minimap: { enabled: false },
+        fontSize: 14,
+        lineNumbers: "on",
+        roundedSelection: true,
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+        tabSize: 2,
+        wordWrap: "on",
+        padding: { top: 8 },
+      });
+      testEditorInstance.getModel()?.onDidChangeContent(() => {
+        const value = testEditorInstance?.getModel()?.getValue() ?? DEFAULT_TEST_INPUT_JSON;
+        setTestInputJson(value);
+      });
+      onCleanup(() => {
+        testEditorInstance?.dispose();
+        testEditorInstance = null;
+      });
+    }
+  });
+
   const handleTestRun = async () => {
     const name = selectedName();
     if (!name) return;
-    const raw = testInputJson().trim() || "{}";
+    const raw = (testEditorInstance?.getModel()?.getValue() ?? testInputJson()).trim() || DEFAULT_TEST_INPUT_JSON;
     let input: unknown;
     try {
       input = JSON.parse(raw);
@@ -302,7 +343,7 @@ export function ScriptsView() {
           aria-labelledby="test-script-title"
           aria-modal="true"
         >
-          <div class="bg-bg-secondary border border-border rounded-lg shadow-xl p-4 max-w-md w-full mx-4">
+          <div class="bg-bg-secondary border border-border rounded-lg shadow-xl p-4 max-w-lg w-full mx-4">
             <h2
               id="test-script-title"
               class="text-text-primary font-medium text-base mb-2"
@@ -312,12 +353,10 @@ export function ScriptsView() {
             <p class="text-text-secondary text-sm mb-2">
               JSON input (available as <code class="text-text-primary">input</code> in the script):
             </p>
-            <textarea
-              value={testInputJson()}
-              onInput={(e) => setTestInputJson(e.currentTarget.value)}
-              class="w-full h-32 px-3 py-2 rounded-md bg-bg-tertiary border border-border text-text-primary font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent"
-              placeholder="{}"
-              spellcheck={false}
+            <div
+              ref={setTestEditorContainer}
+              class="w-full h-48 rounded-md border border-border overflow-hidden"
+              aria-label="JSON input for script test"
             />
             <Show when={testError()}>
               <p class="text-error text-sm mb-2">{testError()}</p>

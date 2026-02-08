@@ -1,5 +1,8 @@
 //! Setup commands for initial configuration and OAuth flow.
 
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
 use serde::Serialize;
 use tauri::State;
 use twitch_api::twitch_oauth2::TwitchToken;
@@ -319,7 +322,27 @@ pub async fn validate_twitch_token(
     })?;
 
     let username = token.login.to_string();
-    tracing::info!("Twitch token validated for user: {}", username);
+
+    // Log at most once per minute per user to avoid duplicate logs when multiple callers validate.
+    let should_log = {
+        static LAST_VALIDATION_LOG: OnceLock<Mutex<Option<(String, Instant)>>> = OnceLock::new();
+        let mut guard = LAST_VALIDATION_LOG
+            .get_or_init(|| Mutex::new(None))
+            .lock()
+            .unwrap();
+        let now = Instant::now();
+        let throttle = Duration::from_secs(60);
+        let should = guard.as_ref().map_or(true, |(u, t)| {
+            u != &username || now.saturating_duration_since(*t) > throttle
+        });
+        if should {
+            *guard = Some((username.clone(), now));
+        }
+        should
+    };
+    if should_log {
+        tracing::debug!("Twitch token validated for user: {}", username);
+    }
 
     Ok(TokenExchangeResult {
         success: true,

@@ -9,6 +9,10 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [solid(), tailwindcss()],
 
+  optimizeDeps: {
+    exclude: ["monaco-editor"],
+  },
+
   // Suppress chunk size warning - not relevant for Tauri desktop apps
   build: {
     chunkSizeWarningLimit: 1000,
