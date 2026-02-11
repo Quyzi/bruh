@@ -13,9 +13,9 @@ export default defineConfig(async () => ({
     exclude: ["monaco-editor"],
   },
 
-  // Suppress chunk size warning - not relevant for Tauri desktop apps
+  // Suppress chunk size warning - not relevant for Tauri desktop apps (single bundle, no CDN)
   build: {
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 6000,
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

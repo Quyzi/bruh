@@ -1,5 +1,9 @@
 # Bruh
-Bruh is a powerful twitch chatbot written in rust powered by [tauri](https://v2.tauri.app/). The frontend is written in HTML + Typescript using solid.js. 
+Bruh is a powerful twitch chatbot written in rust powered by [tauri](https://v2.tauri.app/). The frontend is written in HTML + Typescript using solid.js.
+
+# Building
+- **Linux (deb, rpm, AppImage):** Use `npm run tauri:build` so the AppImage step gets `ARCH=x86_64` and `APPIMAGE_EXTRACT_AND_RUN=1`. That avoids "failed to run linuxdeploy" when FUSE isn’t available or architecture is ambiguous. Plain `npm run tauri build` may still fail at the AppImage step on some systems.
+- **Other:** `npm run tauri build` as usual. 
 
 # Project Layout
 - `./src` :: Typescript + solid.js user interface
