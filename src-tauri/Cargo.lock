@@ -594,6 +594,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "bruh"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-duckdb",
+ "futures",
+ "futures-util",
+ "homedir",
+ "reqwest",
+ "rhai",
+ "scc",
+ "securestore",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-opener",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "tracing-subscriber",
+ "twitch_api",
+ "url",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -782,35 +811,6 @@ dependencies = [
  "num-traits",
  "serde",
  "windows-link 0.2.1",
-]
-
-[[package]]
-name = "clawdia"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-duckdb",
- "futures",
- "futures-util",
- "homedir",
- "reqwest",
- "rhai",
- "scc",
- "securestore",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-opener",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "tokio-tungstenite",
- "tracing",
- "tracing-subscriber",
- "twitch_api",
- "url",
 ]
 
 [[package]]

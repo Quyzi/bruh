@@ -48,7 +48,7 @@ function CallbackPage() {
           <div class="text-4xl mb-4">✓</div>
           <h1 class="text-text-primary font-medium text-2xl">Authorization Successful!</h1>
           <p class="text-text-secondary">
-            Copy the URL below and paste it into the Clawdia app to complete setup.
+            Copy the URL below and paste it into the Bruh app to complete setup.
           </p>
         </div>
 
@@ -82,7 +82,7 @@ function CallbackPage() {
             <strong>Next steps:</strong>
             <ol class="list-decimal list-inside mt-2 space-y-1">
               <li>Copy the URL above</li>
-              <li>Go back to the Clawdia app</li>
+              <li>Go back to the Bruh app</li>
               <li>Paste the URL in the "Paste Callback URL" field</li>
             </ol>
           </div>
@@ -107,7 +107,7 @@ function CallbackErrorPage() {
           <p class="text-error">{callbackErrorDesc}</p>
         </div>
         <p class="text-text-tertiary text-sm text-center">
-          Please close this tab and try again from the Clawdia app.
+          Please close this tab and try again from the Bruh app.
         </p>
       </div>
     </div>

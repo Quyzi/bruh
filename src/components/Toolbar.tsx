@@ -22,7 +22,7 @@ export function Toolbar(props: ToolbarProps) {
       <div class="relative pr-2 border-r border-border self-stretch w-9 h-9 shrink-0 overflow-hidden rounded">
         <img
           src={logo}
-          alt="Clawdia"
+          alt="Bruh"
           class="absolute inset-0 block h-full w-full object-cover object-center"
           style={{ transform: "scale(1.4)" }}
         />

@@ -35,7 +35,7 @@ pub enum ConfigError {
     },
 }
 
-/// Application configuration for Clawdia.
+/// Application configuration for Bruh.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     /// Path to the DuckDB database file.
@@ -52,23 +52,23 @@ pub struct Config {
 }
 
 fn default_workflow_path() -> PathBuf {
-    "~/.clawdia/workflow.json".into()
+    "~/.bruh/workflow.json".into()
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            database: "~/.clawdia/user.duckdb".into(),
-            scripts: "~/.clawdia/scripts".into(),
-            secrets_key: "~/.clawdia/secrets.key".into(),
-            secrets: "~/.clawdia/secrets.json".into(),
+            database: "~/.bruh/user.duckdb".into(),
+            scripts: "~/.bruh/scripts".into(),
+            secrets_key: "~/.bruh/secrets.key".into(),
+            secrets: "~/.bruh/secrets.json".into(),
             workflow: default_workflow_path(),
         }
     }
 }
 
 /// Default path for the config file.
-pub const CONFIG_PATH: &str = "~/.clawdia/config.json";
+pub const CONFIG_PATH: &str = "~/.bruh/config.json";
 
 impl Config {
     /// Loads a configuration from a JSON file at the given path.
@@ -117,7 +117,7 @@ impl Config {
             })
     }
 
-    /// Loads the config from `~/.clawdia/config.json`, creating the directory
+    /// Loads the config from `~/.bruh/config.json`, creating the directory
     /// and a default config file if they don't exist.
     #[tracing::instrument]
     pub fn load_or_create_default() -> Result<Self, ConfigError> {

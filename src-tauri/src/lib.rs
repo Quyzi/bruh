@@ -49,7 +49,7 @@ pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
                 .with(LevelFilter::DEBUG)
                 .init();
 
-            tracing::info!("🦀 Starting Clawdia!");
+            tracing::info!("🦀 Starting Bruh!");
             Ok(())
         })
         .manage(config)

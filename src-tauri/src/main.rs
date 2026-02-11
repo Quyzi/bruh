@@ -5,9 +5,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
-use clawdia_lib::config::expand_tilde;
-use clawdia_lib::secrets::{SecureStoreConfig, SecureStoreProvider};
-use clawdia_lib::{Config, Database};
+use bruh_lib::config::expand_tilde;
+use bruh_lib::secrets::{SecureStoreConfig, SecureStoreProvider};
+use bruh_lib::{Config, Database};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
     let secrets = load_or_create_secrets(&config)?;
     let db = load_or_create_db(&config).await?;
 
-    clawdia_lib::run(config, secrets, db)
+    bruh_lib::run(config, secrets, db)
 }
 
 fn load_or_create_secrets(config: &Config) -> Result<Arc<SecureStoreProvider>> {

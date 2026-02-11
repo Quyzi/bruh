@@ -1,5 +1,5 @@
-# Clawdia
-Clawdia is a powerful twitch chatbot written in rust powered by [tauri](https://v2.tauri.app/). The frontend is written in HTML + Typescript using solid.js. 
+# Bruh
+Bruh is a powerful twitch chatbot written in rust powered by [tauri](https://v2.tauri.app/). The frontend is written in HTML + Typescript using solid.js. 
 
 # Project Layout
 - `./src` :: Typescript + solid.js user interface
