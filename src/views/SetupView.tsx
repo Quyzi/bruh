@@ -4,13 +4,13 @@ import {
   getSetupStatus,
   saveTwitchCredentials,
   getTwitchAuthUrl,
-  validateTwitchToken,
   logoutTwitch,
   exchangeTwitchCode,
   saveTwitchScopes,
   getTwitchScopes,
   type SetupStatus,
 } from "../lib/tauri";
+import { twitchUsername, setTwitchUsername } from "../lib/authStore";
 
 interface SetupViewProps {
   oauthStatus?: string | null;
@@ -128,7 +128,6 @@ export function SetupView(props: SetupViewProps) {
   const [error, setError] = createSignal<string | null>(null);
   const [saving, setSaving] = createSignal(false);
   const [saveSuccess, setSaveSuccess] = createSignal(false);
-  const [twitchUsername, setTwitchUsername] = createSignal<string | null>(null);
   const [authUrl, setAuthUrl] = createSignal<string | null>(null);
   const [linkCopied, setLinkCopied] = createSignal(false);
   const [selectedScopes, setSelectedScopes] = createSignal<Set<string>>(new Set(DEFAULT_SCOPES));
@@ -159,18 +158,7 @@ export function SetupView(props: SetupViewProps) {
     try {
       const s = await getSetupStatus();
       setStatus(s);
-
-      // If user is authorized, validate and get username
-      if (s.userAuthorized) {
-        try {
-          const result = await validateTwitchToken();
-          if (result.success && result.username) {
-            setTwitchUsername(result.username);
-          }
-        } catch (e) {
-          console.error("Failed to validate token:", e);
-        }
-      }
+      // Username comes from authStore (set by StatusBar or after OAuth/logout)
     } catch (e) {
       console.error("Failed to get setup status:", e);
     }
@@ -269,7 +257,7 @@ export function SetupView(props: SetupViewProps) {
       
       if (result.success) {
         props.onOauthStatusChange?.(`Successfully authorized as ${result.username}`);
-        setTwitchUsername(result.username ?? null);
+        setTwitchUsername(result.username ?? null); // update shared store
         setAuthUrl(null);
         setCallbackUrl(null);
         await loadStatus();
@@ -286,7 +274,7 @@ export function SetupView(props: SetupViewProps) {
     setError(null);
     try {
       await logoutTwitch();
-      setTwitchUsername(null);
+      setTwitchUsername(null); // clear shared store
       setAuthUrl(null);
       props.onOauthStatusChange?.(null);
       await loadStatus();

@@ -1,6 +1,7 @@
 import { createSignal, createEffect, For, Show, onMount, onCleanup } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
 import { getSetupStatus, validateTwitchToken } from "../lib/tauri";
+import { twitchUsername, setTwitchUsername } from "../lib/authStore";
 
 interface LogPayload {
   level: number;
@@ -68,7 +69,6 @@ export function StatusBar(props: StatusBarProps) {
   const [backlogLength, setBacklogLength] = createSignal(100);
   const [minLevel, setMinLevel] = createSignal(3); // Default to INFO
   const [authStatus, setAuthStatus] = createSignal<AuthStatus>("red");
-  const [twitchUsername, setTwitchUsername] = createSignal<string | null>(null);
   let logId = 0;
   let logContainerRef: HTMLDivElement | undefined;
 
@@ -89,14 +89,14 @@ export function StatusBar(props: StatusBarProps) {
         setTwitchUsername(null);
         return;
       }
-      
+
       if (!status.userAuthorized) {
         setAuthStatus("yellow");
         setTwitchUsername(null);
         return;
       }
-      
-      // Validate token
+
+      // Single validation path: only StatusBar calls this, store is shared with SetupView
       try {
         const result = await validateTwitchToken();
         if (result.success) {
