@@ -10,7 +10,8 @@ use url::Url;
 
 use crate::{
     auth::{
-        clear_tokens_from_secrets, default_scopes, load_token_from_secrets, save_token_to_secrets,
+        clear_tokens_from_secrets, core_scopes, default_scopes, load_token_from_secrets,
+        save_token_to_secrets,
         SECRET_TWITCH_ACCESS_TOKEN, SECRET_TWITCH_CLIENT_ID, SECRET_TWITCH_CLIENT_SECRET,
         SECRET_TWITCH_CSRF_TOKEN, SECRET_TWITCH_REFRESH_TOKEN, SECRET_TWITCH_SCOPES,
     },
@@ -66,6 +67,16 @@ pub struct TokenExchangeResult {
     pub success: bool,
     pub message: String,
     pub username: Option<String>,
+}
+
+/// Result of validating a channel (exists, user is owner, scopes OK).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidateChannelResult {
+    pub valid: bool,
+    pub channel_id: Option<String>,
+    pub display_name: Option<String>,
+    pub message: String,
 }
 
 /// Returns the current setup status, indicating which credentials are configured.
@@ -445,6 +456,161 @@ pub async fn save_twitch_scopes(
 
     tracing::debug!("Saved {} scopes to secrets", scopes.len());
     Ok(())
+}
+
+/// Validates that a channel exists, the authenticated user is its owner or a moderator, and the token has required scopes.
+#[tauri::command]
+pub async fn validate_channel(
+    login: String,
+    secrets: State<'_, Secrets>,
+) -> Result<ValidateChannelResult, CommandError> {
+    use twitch_api::helix::moderation::get_moderated_channels;
+    use twitch_api::helix::users::get_users;
+
+    let secrets = secrets.inner().clone();
+
+    let client_id = secrets.get(SECRET_TWITCH_CLIENT_ID).map_err(|e| match e {
+        SecretsError::NotFound(_) => CommandError {
+            message: "Twitch Client ID is not configured".to_string(),
+        },
+        e => e.into(),
+    })?;
+
+    let client_secret = secrets
+        .get(SECRET_TWITCH_CLIENT_SECRET)
+        .map_err(|e| match e {
+            SecretsError::NotFound(_) => CommandError {
+                message: "Twitch Client Secret is not configured".to_string(),
+            },
+            e => e.into(),
+        })?;
+
+    let (access_token, refresh_token) =
+        load_token_from_secrets(secrets.as_ref()).map_err(|e| match e {
+            SecretsError::NotFound(_) => CommandError {
+                message: "No stored tokens found. Please authorize with Twitch.".to_string(),
+            },
+            e => CommandError {
+                message: format!("Failed to load tokens: {}", e),
+            },
+        })?;
+
+    let redirect_uri =
+        Url::parse(crate::auth::DEFAULT_REDIRECT_URI).map_err(|e: url::ParseError| {
+            CommandError {
+                message: format!("Invalid redirect URI: {}", e),
+            }
+        })?;
+
+    let client: twitch_api::HelixClient<'static, reqwest::Client> =
+        twitch_api::HelixClient::default();
+    let auth = crate::auth::TwitchAuth::new(client, client_id, client_secret, redirect_uri);
+
+    let token = auth
+        .load_from_tokens(access_token, refresh_token)
+        .await
+        .map_err(|e| {
+            CommandError {
+                message: format!("Token validation failed: {}. Please re-authorize.", e),
+            }
+        })?;
+
+    let logins = [login.as_str()];
+    let request = get_users::GetUsersRequest::logins(logins.as_slice());
+
+    let response = auth
+        .helix_client()
+        .req_get(request, &token)
+        .await
+        .map_err(|e| CommandError {
+            message: format!("Failed to fetch channel: {}", e),
+        })?;
+
+    let users = response.data;
+    let channel_user = match users.first() {
+        Some(u) => u,
+        None => {
+            return Ok(ValidateChannelResult {
+                valid: false,
+                channel_id: None,
+                display_name: None,
+                message: "Channel not found".to_string(),
+            });
+        }
+    };
+
+    let channel_id_str = channel_user.id.to_string();
+    let channel_display = channel_user.login.to_string();
+
+    let token_user_id = match token.user_id() {
+        Some(id) => id,
+        None => {
+            return Ok(ValidateChannelResult {
+                valid: false,
+                channel_id: Some(channel_id_str),
+                display_name: Some(channel_display.clone()),
+                message: "Token has no user ID".to_string(),
+            });
+        }
+    };
+
+    let is_owner = token_user_id == &channel_user.id;
+    let is_moderator = if is_owner {
+        true
+    } else {
+        let request = get_moderated_channels::GetModeratedChannelsRequest::user_id(
+            token_user_id.as_str(),
+        )
+        .first(100);
+        let response = auth
+            .helix_client()
+            .req_get(request, &token)
+            .await
+            .map_err(|e| CommandError {
+                message: format!("Failed to fetch moderated channels: {}", e),
+            })?;
+        response
+            .data
+            .iter()
+            .any(|moderated| moderated.broadcaster_id == channel_user.id)
+    };
+
+    if !is_moderator {
+        return Ok(ValidateChannelResult {
+            valid: false,
+            channel_id: Some(channel_id_str),
+            display_name: Some(channel_display.clone()),
+            message: "You must be the channel owner or a moderator to add this channel"
+                .to_string(),
+        });
+    }
+
+    let required_scopes = core_scopes();
+    let token_scope_set: std::collections::HashSet<String> =
+        token.scopes().iter().map(|s| s.to_string()).collect();
+    let missing: Vec<String> = required_scopes
+        .iter()
+        .filter(|s| !token_scope_set.contains(&s.to_string()))
+        .map(|s| s.to_string())
+        .collect();
+    if !missing.is_empty() {
+        return Ok(ValidateChannelResult {
+            valid: false,
+            channel_id: Some(channel_id_str),
+            display_name: Some(channel_display.clone()),
+            message: format!("Missing scopes: {}. Please re-authorize with the required scopes.", missing.join(", ")),
+        });
+    }
+
+    Ok(ValidateChannelResult {
+        valid: true,
+        channel_id: Some(channel_id_str),
+        display_name: Some(channel_display),
+        message: format!(
+            "Channel {} is valid and you have the required permissions",
+            channel_user.login
+        ),
+    })
 }
 
 /// Gets previously saved scopes from secrets.

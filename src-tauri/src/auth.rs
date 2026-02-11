@@ -31,14 +31,21 @@ pub const SECRET_TWITCH_CSRF_TOKEN: &str = "twitch/csrf_token";
 /// Default redirect URI for OAuth callback (uses Tauri's dev server port)
 pub const DEFAULT_REDIRECT_URI: &str = "http://localhost:1420/callback";
 
-/// Default scopes required for chat functionality
-pub fn default_scopes() -> Vec<Scope> {
+/// Core scopes required for chat (used when validating channel add; owners can add with just these).
+pub fn core_scopes() -> Vec<Scope> {
     vec![
         Scope::ChatRead,
         Scope::ChatEdit,
         Scope::UserReadChat,
         Scope::UserWriteChat,
     ]
+}
+
+/// Default scopes offered when authorizing (includes moderated channels for adding channels you moderate).
+pub fn default_scopes() -> Vec<Scope> {
+    let mut scopes = core_scopes();
+    scopes.push(Scope::UserReadModeratedChannels);
+    scopes
 }
 
 #[derive(Debug, Error)]

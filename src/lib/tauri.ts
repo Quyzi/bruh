@@ -89,6 +89,31 @@ export async function deleteSecret(name: string): Promise<void> {
   return invoke("delete_secret", { name });
 }
 
+// Channels management (channels.json)
+export interface Channel {
+  login: string;
+  display_name?: string | null;
+}
+
+export interface ValidateChannelResult {
+  valid: boolean;
+  channelId?: string | null;
+  displayName?: string | null;
+  message: string;
+}
+
+export async function loadChannels(): Promise<Channel[]> {
+  return invoke<Channel[]>("load_channels");
+}
+
+export async function saveChannels(channels: Channel[]): Promise<void> {
+  return invoke("save_channels", { channels });
+}
+
+export async function validateChannel(login: string): Promise<ValidateChannelResult> {
+  return invoke<ValidateChannelResult>("validate_channel", { login: login.trim() });
+}
+
 // Workflow management
 export async function saveWorkflow(workflow: unknown): Promise<void> {
   return invoke("save_workflow", { workflow });

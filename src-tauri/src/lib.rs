@@ -7,6 +7,7 @@ use tracing_subscriber::{
 };
 
 pub mod auth;
+pub mod channels;
 pub mod config;
 mod log_layer;
 pub mod scripts;
@@ -67,6 +68,9 @@ pub fn run(config: Config, secrets: Secrets, db: Database) -> Result<()> {
             setup::logout_twitch,
             setup::save_twitch_scopes,
             setup::get_twitch_scopes,
+            setup::validate_channel,
+            channels::load_channels,
+            channels::save_channels,
             secrets::commands::list_secrets,
             secrets::commands::get_secret,
             secrets::commands::set_secret,

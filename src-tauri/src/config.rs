@@ -49,10 +49,17 @@ pub struct Config {
     /// Path to the workflow JSON file.
     #[serde(default = "default_workflow_path")]
     pub workflow: PathBuf,
+    /// Path to the channels JSON file.
+    #[serde(default = "default_channels_path")]
+    pub channels: PathBuf,
 }
 
 fn default_workflow_path() -> PathBuf {
     "~/.bruh/workflow.json".into()
+}
+
+fn default_channels_path() -> PathBuf {
+    "~/.bruh/channels.json".into()
 }
 
 impl Default for Config {
@@ -63,6 +70,7 @@ impl Default for Config {
             secrets_key: "~/.bruh/secrets.key".into(),
             secrets: "~/.bruh/secrets.json".into(),
             workflow: default_workflow_path(),
+            channels: default_channels_path(),
         }
     }
 }
