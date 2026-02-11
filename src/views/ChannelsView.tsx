@@ -85,6 +85,9 @@ export function ChannelsView() {
             <p class="text-text-secondary text-sm">
               Manage your Twitch channels and connections
             </p>
+            <p class="text-text-secondary/90 text-xs mt-1">
+              You can only add channels you own or moderate; ensure required scopes are granted in Setup.
+            </p>
           </div>
           <button
             onClick={() => setShowAddForm(true)}
@@ -116,10 +119,16 @@ export function ChannelsView() {
         <Show when={showAddForm()}>
           <div class="bg-bg-secondary rounded-lg p-4 space-y-3">
             <h3 class="text-text-primary font-medium">Add Channel</h3>
+            <div class="bg-accent/10 border border-accent/30 rounded-lg p-3 text-sm">
+              <p class="text-text-primary font-medium mb-2">Requirements to add a channel:</p>
+              <ul class="list-disc list-inside space-y-1 text-text-secondary">
+                <li>The channel must exist on Twitch.</li>
+                <li>You must be the <strong class="text-text-primary">channel owner</strong> or a <strong class="text-text-primary">moderator</strong> of that channel.</li>
+                <li>Your Twitch authorization must include the <strong class="text-text-primary">required scopes</strong> (configure in Setup).</li>
+              </ul>
+            </div>
             <p class="text-text-secondary text-sm">
-              Enter the Twitch channel login. The channel will be verified (must
-              exist and you must be the owner or a moderator with required
-              scopes).
+              Enter the Twitch channel login below. It will be verified before adding.
             </p>
             <div>
               <label class="block text-text-secondary text-sm mb-1">
@@ -167,10 +176,17 @@ export function ChannelsView() {
             <Show
               when={channels().length > 0}
               fallback={
-                <div class="p-8 text-center text-text-secondary">
-                  No channels yet. Click "Add Channel" to add one (you must be
-                  the channel owner or a moderator and authorized with the
-                  required scopes).
+                <div class="p-8 space-y-4">
+                  <p class="text-center text-text-secondary">
+                    No channels yet. Click "Add Channel" to add one.
+                  </p>
+                  <div class="max-w-md mx-auto bg-bg-tertiary/80 border border-border rounded-lg p-4 text-sm text-text-secondary">
+                    <p class="font-medium text-text-primary mb-2">You can only add a channel if:</p>
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>You are the channel owner or a moderator.</li>
+                      <li>You have authorized the app with the required scopes (Setup tab).</li>
+                    </ul>
+                  </div>
                 </div>
               }
             >

@@ -8,6 +8,7 @@ import {
   exchangeTwitchCode,
   saveTwitchScopes,
   getTwitchScopes,
+  getSecret,
   type SetupStatus,
 } from "../lib/tauri";
 import { twitchUsername, setTwitchUsername } from "../lib/authStore";
@@ -118,8 +119,14 @@ const TWITCH_SCOPES: ScopeInfo[] = [
   { id: "channel:manage:clips", name: "channel:manage:clips", description: "Manage Clips for a channel including from VOD", endpoints: ["Create Clip From VOD"], category: "Clips" },
 ];
 
-// Default recommended scopes for chat functionality
-const DEFAULT_SCOPES = ["chat:read", "chat:edit", "user:read:chat", "user:write:chat"];
+// Default recommended scopes for chat and channel management (includes moderated channels for adding channels you moderate)
+const DEFAULT_SCOPES = [
+  "chat:read",
+  "chat:edit",
+  "user:read:chat",
+  "user:write:chat",
+  "user:read:moderated_channels",
+];
 
 export function SetupView(props: SetupViewProps) {
   const [clientId, setClientId] = createSignal("");
@@ -135,6 +142,8 @@ export function SetupView(props: SetupViewProps) {
   const [scopeFilter, setScopeFilter] = createSignal("");
   const [authUrlRevealed, setAuthUrlRevealed] = createSignal(false);
   const [callbackUrlRevealed, setCallbackUrlRevealed] = createSignal(false);
+  const [clientIdRevealed, setClientIdRevealed] = createSignal(false);
+  const [clientSecretRevealed, setClientSecretRevealed] = createSignal(false);
 
   // Group scopes by category
   const scopesByCategory = () => {
@@ -156,9 +165,20 @@ export function SetupView(props: SetupViewProps) {
 
   const loadStatus = async () => {
     try {
-      const s = await getSetupStatus();
-      setStatus(s);
-      // Username comes from authStore (set by StatusBar or after OAuth/logout)
+      const setupStatus = await getSetupStatus();
+      setStatus(setupStatus);
+      if (setupStatus.credentialsConfigured) {
+        try {
+          const [storedClientId, storedClientSecret] = await Promise.all([
+            getSecret("twitch/client_id"),
+            getSecret("twitch/client_secret"),
+          ]);
+          setClientId(storedClientId);
+          setClientSecret(storedClientSecret);
+        } catch {
+          // Leave form empty if we can't read stored secrets
+        }
+      }
     } catch (e) {
       console.error("Failed to get setup status:", e);
     }
@@ -376,26 +396,72 @@ export function SetupView(props: SetupViewProps) {
               <label class="block text-text-secondary text-sm mb-1">
                 Client ID
               </label>
-              <input
-                type="text"
-                value={clientId()}
-                onInput={(e) => setClientId(e.currentTarget.value)}
-                placeholder="Enter your Twitch Client ID"
-                class="w-full bg-bg-tertiary border border-border rounded px-3 py-2 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
-              />
+              <div class="relative">
+                <input
+                  type={clientIdRevealed() ? "text" : "password"}
+                  value={clientId()}
+                  onInput={(e) => setClientId(e.currentTarget.value)}
+                  placeholder="Enter your Twitch Client ID"
+                  class="w-full bg-bg-tertiary border border-border rounded px-3 py-2 pr-10 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={() => setClientIdRevealed(!clientIdRevealed())}
+                  class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded hover:bg-bg-secondary text-text-secondary hover:text-text-primary transition-colors"
+                  title={clientIdRevealed() ? "Hide" : "Show"}
+                  aria-label={clientIdRevealed() ? "Hide Client ID" : "Show Client ID"}
+                >
+                  <Show
+                    when={clientIdRevealed()}
+                    fallback={
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    }
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                  </Show>
+                </button>
+              </div>
             </div>
 
             <div>
               <label class="block text-text-secondary text-sm mb-1">
                 Client Secret
               </label>
-              <input
-                type="password"
-                value={clientSecret()}
-                onInput={(e) => setClientSecret(e.currentTarget.value)}
-                placeholder="Enter your Twitch Client Secret"
-                class="w-full bg-bg-tertiary border border-border rounded px-3 py-2 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
-              />
+              <div class="relative">
+                <input
+                  type={clientSecretRevealed() ? "text" : "password"}
+                  value={clientSecret()}
+                  onInput={(e) => setClientSecret(e.currentTarget.value)}
+                  placeholder="Enter your Twitch Client Secret"
+                  class="w-full bg-bg-tertiary border border-border rounded px-3 py-2 pr-10 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={() => setClientSecretRevealed(!clientSecretRevealed())}
+                  class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded hover:bg-bg-secondary text-text-secondary hover:text-text-primary transition-colors"
+                  title={clientSecretRevealed() ? "Hide" : "Show"}
+                  aria-label={clientSecretRevealed() ? "Hide Client Secret" : "Show Client Secret"}
+                >
+                  <Show
+                    when={clientSecretRevealed()}
+                    fallback={
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    }
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                  </Show>
+                </button>
+              </div>
             </div>
           </div>
 
