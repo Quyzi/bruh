@@ -1,0 +1,33 @@
+{
+  "name": "bruh",
+  "version": "0.1.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "tauri": "tauri",
+    "tauri:build": "ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 tauri build",
+    "tauri:dev": "CXX=clang++ CC=clang WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-opener": "^2",
+    "chart.js": "^4.5.1",
+    "litegraph.js": "^0.7.18",
+    "monaco-editor": "^0.55.1",
+    "solid-js": "^1.9.3",
+    "tailwindcss": "^4.1.18"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3",
+    "vite-plugin-solid": "^2.11.0"
+  }
+}
