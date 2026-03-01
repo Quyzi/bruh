@@ -115,34 +115,41 @@ pub async fn execute(
         }
     };
 
-    let channel_for_metrics: String = if !channel.is_empty() && !channel.chars().all(|c| c.is_ascii_digit()) {
-        channel.clone()
-    } else {
-        use twitch_api::helix::users::get_users;
-        let helix = auth.helix_client();
-        let request = get_users::GetUsersRequest::ids(std::slice::from_ref(&broadcaster_id));
-        match helix.req_get(request, &token).await {
-            Ok(response) => response
-                .data
-                .into_iter()
-                .next()
-                .map(|u| u.login.to_string())
-                .unwrap_or_else(|| channel.clone()),
-            Err(_) => channel.clone(),
-        }
-    };
+    let channel_for_metrics: String =
+        if !channel.is_empty() && !channel.chars().all(|c| c.is_ascii_digit()) {
+            channel.clone()
+        } else {
+            use twitch_api::helix::users::get_users;
+            let helix = auth.helix_client();
+            let request = get_users::GetUsersRequest::ids(std::slice::from_ref(&broadcaster_id));
+            match helix.req_get(request, &token).await {
+                Ok(response) => response
+                    .data
+                    .into_iter()
+                    .next()
+                    .map(|u| u.login.to_string())
+                    .unwrap_or_else(|| channel.clone()),
+                Err(_) => channel.clone(),
+            }
+        };
 
     use twitch_api::helix::chat::send_chat_message;
-    let body =
-        send_chat_message::SendChatMessageBody::new(broadcaster_id, sender_id, message.clone());
-    let request = send_chat_message::SendChatMessageRequest::new();
     let helix = auth.helix_client();
-    tracing::debug!(channel = %channel, message_len = message.len(), "Sending Twitch chat message");
-    if let Err(e) = helix.req_post(request, body, &token).await {
-        tracing::warn!("TwitchSendChat: send_chat_message failed: {}", e);
-        return Err(anyhow::anyhow!("send_chat_message: {}", e));
+    let chunks = super::split_message(&message, 450, 500);
+    tracing::debug!(channel = %channel, message_len = message.len(), chunks = chunks.len(), "Sending Twitch chat message");
+    for chunk in &chunks {
+        let body = send_chat_message::SendChatMessageBody::new(
+            broadcaster_id.clone(),
+            sender_id.clone(),
+            chunk.clone(),
+        );
+        let request = send_chat_message::SendChatMessageRequest::new();
+        if let Err(e) = helix.req_post(request, body, &token).await {
+            tracing::warn!("TwitchSendChat: send_chat_message failed: {}", e);
+            return Err(anyhow::anyhow!("send_chat_message: {}", e));
+        }
+        metrics::record_chat_message_sent(&channel_for_metrics);
     }
-    metrics::record_chat_message_sent(&channel_for_metrics);
-    tracing::info!(channel = %channel_for_metrics, "Twitch chat message sent");
+    tracing::info!(channel = %channel_for_metrics, chunks = chunks.len(), "Twitch chat message sent");
     Ok(Vec::new())
 }

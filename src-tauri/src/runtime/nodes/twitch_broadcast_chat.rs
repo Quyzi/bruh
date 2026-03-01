@@ -8,8 +8,8 @@ use twitch_api::twitch_oauth2::TwitchToken;
 
 use crate::auth::{AuthError, ReqwestTwitchAuth};
 use crate::channels::load_channels_from_path;
-use crate::metrics;
 use crate::config::expand_tilde;
+use crate::metrics;
 use crate::Config;
 
 /// Result action node that broadcasts a message to all connected channels.
@@ -100,7 +100,8 @@ pub async fn execute(
     use twitch_api::helix::chat::send_chat_message;
     use twitch_api::helix::users::get_users;
     let helix = auth.helix_client();
-    for ch in &channels {
+    let chunks = super::split_message(&message, 450, 500);
+    'channels: for ch in &channels {
         let login = ch.login.as_str();
         let logins = [login];
         let request = get_users::GetUsersRequest::logins(&logins);
@@ -118,18 +119,20 @@ pub async fn execute(
                 continue;
             }
         };
-        let body = send_chat_message::SendChatMessageBody::new(
-            broadcaster_id.clone(),
-            sender_id.clone(),
-            message.clone(),
-        );
-        let request = send_chat_message::SendChatMessageRequest::new();
-        if let Err(e) = helix.req_post(request, body, &token).await {
-            tracing::warn!(channel = %login, "TwitchBroadcastChat: send_chat_message failed: {}", e);
-            continue;
+        for chunk in &chunks {
+            let body = send_chat_message::SendChatMessageBody::new(
+                broadcaster_id.clone(),
+                sender_id.clone(),
+                chunk.clone(),
+            );
+            let request = send_chat_message::SendChatMessageRequest::new();
+            if let Err(e) = helix.req_post(request, body, &token).await {
+                tracing::warn!(channel = %login, "TwitchBroadcastChat: send_chat_message failed: {}", e);
+                continue 'channels;
+            }
+            metrics::record_chat_message_sent(login);
         }
-        metrics::record_chat_message_sent(login);
-        tracing::info!(channel = %login, "Twitch broadcast chat message sent");
+        tracing::info!(channel = %login, chunks = chunks.len(), "Twitch broadcast chat message sent");
     }
     Ok(Vec::new())
 }

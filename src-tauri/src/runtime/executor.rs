@@ -170,7 +170,10 @@ pub async fn executor_loop(
                     {
                         let (source_label, source_groups) =
                             node_label_and_groups_from_graph(&graph, path.source_id);
-                        metrics::record_pipeline_run_failed(Some(path.source_id), Some(&source_label));
+                        metrics::record_pipeline_run_failed(
+                            Some(path.source_id),
+                            Some(&source_label),
+                        );
                         tracing::warn!(
                             source_id = path.source_id,
                             node = %source_label,
@@ -291,7 +294,13 @@ async fn run_pipeline(
         .await
         {
             Ok(outputs) => {
-                metrics::record_node_outcome(node_id, &node_label, node_type, &node_groups, "success");
+                metrics::record_node_outcome(
+                    node_id,
+                    &node_label,
+                    node_type,
+                    &node_groups,
+                    "success",
+                );
                 let output_count = outputs.len();
                 for (slot_index, value) in outputs {
                     slot_values.insert((node_id, slot_index), value);
@@ -299,7 +308,13 @@ async fn run_pipeline(
                 tracing::debug!(node_id, node = %node_label, groups = %node_groups, output_count, "Node executed");
             }
             Err(error) => {
-                metrics::record_node_outcome(node_id, &node_label, node_type, &node_groups, "error");
+                metrics::record_node_outcome(
+                    node_id,
+                    &node_label,
+                    node_type,
+                    &node_groups,
+                    "error",
+                );
                 tracing::warn!(node_id, node = %node_label, groups = %node_groups, error = %error, "Node execution failed");
                 return Err(error.into());
             }

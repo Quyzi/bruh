@@ -68,7 +68,9 @@ pub fn record_pipeline_events_dropped(count: u64) {
 
 /// Records a pipeline run failure (optional source_id and source_name for labels).
 pub fn record_pipeline_run_failed(source_id: Option<i32>, source_name: Option<&str>) {
-    let id_label = source_id.map(|i| i.to_string()).unwrap_or_else(|| "unknown".to_string());
+    let id_label = source_id
+        .map(|i| i.to_string())
+        .unwrap_or_else(|| "unknown".to_string());
     let name_label = source_name.unwrap_or("unknown").to_string();
     counter!(
         PIPELINE_RUNS_FAILED_TOTAL,

@@ -36,7 +36,12 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-pub fn run(config: Config, secrets: Secrets, db: Database, metrics: PrometheusHandle) -> Result<()> {
+pub fn run(
+    config: Config,
+    secrets: Secrets,
+    db: Database,
+    metrics: PrometheusHandle,
+) -> Result<()> {
     let workflow_path = expand_tilde(&config.workflow);
     let initial_workflow = runtime::load_workflow_from_path(&workflow_path)
         .ok()

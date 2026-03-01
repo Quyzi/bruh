@@ -100,6 +100,48 @@ impl TypedNode {
     }
 }
 
+/// Returns the byte offset of the `n`-th Unicode character in `s`,
+/// or `s.len()` if `s` has fewer than `n` characters.
+fn char_byte_offset(s: &str, n: usize) -> usize {
+    s.char_indices().nth(n).map(|(i, _)| i).unwrap_or(s.len())
+}
+
+/// Splits a message into chunks, trying to break at a word boundary.
+///
+/// - Prefers to split at or before `preferred` characters.
+/// - If no space is found scanning backwards from `preferred`, scans forwards
+///   up to `hard_limit` characters to avoid cutting a word in half.
+/// - Only hard-splits at `hard_limit` if no space exists in the entire window
+///   (e.g. a single word longer than the limit).
+pub(crate) fn split_message(message: &str, preferred: usize, hard_limit: usize) -> Vec<String> {
+    let mut chunks = Vec::new();
+    let mut remaining = message;
+    while !remaining.is_empty() {
+        if remaining.chars().count() <= hard_limit {
+            chunks.push(remaining.to_string());
+            break;
+        }
+        let preferred_byte = char_byte_offset(remaining, preferred);
+        let hard_byte = char_byte_offset(remaining, hard_limit);
+
+        let split_byte = if let Some(pos) = remaining[..preferred_byte].rfind(' ') {
+            // Found a space at or before the preferred boundary.
+            pos
+        } else if let Some(rel) = remaining[preferred_byte..hard_byte].find(' ') {
+            // No space before preferred, but one exists before the hard limit —
+            // scan forwards to keep the current word whole.
+            preferred_byte + rel
+        } else {
+            // No space anywhere in the window; hard-split at the limit.
+            hard_byte
+        };
+
+        chunks.push(remaining[..split_byte].to_string());
+        remaining = remaining[split_byte..].trim_start();
+    }
+    chunks
+}
+
 /// Tries to parse a raw node Value into a TypedNode.
 /// Returns None if the node type is unknown or parsing fails.
 pub fn try_parse_node(node: &Value) -> Option<TypedNode> {
