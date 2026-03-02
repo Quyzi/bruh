@@ -11,6 +11,7 @@ import {
   writeStartupSql,
   runStartupSql,
 } from "../lib/tauri";
+import { notifyGitRefresh } from "../lib/gitRefreshBus";
 
 export function DatabaseView() {
   const [currentContent, setCurrentContent] = createSignal("");
@@ -77,6 +78,7 @@ export function DatabaseView() {
       await writeStartupSql(value);
       setCurrentContent(value);
       setDirty(false);
+      notifyGitRefresh();
     } catch (e: unknown) {
       const err = e as { message?: string };
       setError(err.message ?? "Failed to save startup.sql");

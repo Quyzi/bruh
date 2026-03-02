@@ -1,5 +1,6 @@
 import { createSignal, onMount } from "solid-js";
 import { TabBar, Tab } from "./TabBar";
+import { GitControls } from "./GitControls";
 import logo from "../assets/logo.png";
 import {
   getRuntimeState,
@@ -91,6 +92,8 @@ export function Toolbar(props: ToolbarProps) {
         onTabChange={props.onTabChange}
       />
       <div class="ml-auto flex items-center gap-2">
+        <GitControls />
+        <div class="w-px h-4 bg-border shrink-0" />
         <span
           class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"
           classList={{

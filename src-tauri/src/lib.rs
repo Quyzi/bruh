@@ -13,6 +13,7 @@ pub mod channels;
 pub mod chat_commands;
 pub mod config;
 pub mod database;
+pub mod git;
 pub mod log_layer;
 pub mod metrics;
 pub mod runtime;
@@ -111,6 +112,10 @@ pub fn run(
             database::read_startup_sql,
             database::write_startup_sql,
             database::run_startup_sql,
+            git::git_get_status,
+            git::git_commit,
+            git::git_reset,
+            git::git_checkout_revision,
             render_metrics,
         ])
         .run(tauri::generate_context!())

@@ -1,8 +1,10 @@
 import { onMount, onCleanup, createSignal, createEffect, Show } from "solid-js";
 import { LGraph, LGraphCanvas } from "litegraph.js";
 import "litegraph.js/css/litegraph.css";
+import { listen } from "@tauri-apps/api/event";
 import { configureLiteGraphTheme, registerAllNodes } from "../nodes";
 import { saveWorkflow, loadWorkflow } from "../lib/tauri";
+import { notifyGitRefresh } from "../lib/gitRefreshBus";
 
 /**
  * Override deleteSelectedNodes to remove LiteGraph's "autoconnect when possible" behavior.
@@ -72,6 +74,7 @@ export function WorkflowView(props: WorkflowViewProps) {
       const data = graph.serialize();
       await saveWorkflow(data);
       setDirty(false);
+      notifyGitRefresh();
     } catch (e: unknown) {
       const err = e as { message?: string };
       setError(err.message ?? "Failed to save workflow");
@@ -208,10 +211,15 @@ export function WorkflowView(props: WorkflowViewProps) {
     };
     document.addEventListener("keydown", onKeyDown);
 
+    const unlistenRestore = listen("bruh://data-restored", () => {
+      handleReload();
+    });
+
     onCleanup(() => {
       setCanvasInstance(null);
       document.removeEventListener("keydown", onKeyDown);
       resizeObserver.disconnect();
+      unlistenRestore.then((u) => u());
       if (graphCanvas) {
         graphCanvas.stopRendering();
       }
