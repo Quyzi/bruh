@@ -234,3 +234,34 @@ export async function banUser(
 export async function renderMetrics(): Promise<string[]> {
   return invoke<string[]>("render_metrics");
 }
+
+// Git revision management (~/.bruh directory)
+export interface CommitInfo {
+  hash: string;
+  fullHash: string;
+  message: string;
+  timestamp: number;
+  isHead: boolean;
+}
+
+export interface GitStatusResult {
+  initialized: boolean;
+  dirty: boolean;
+  commits: CommitInfo[];
+}
+
+export async function gitGetStatus(): Promise<GitStatusResult> {
+  return invoke<GitStatusResult>("git_get_status");
+}
+
+export async function gitCommit(message: string): Promise<void> {
+  return invoke("git_commit", { message });
+}
+
+export async function gitReset(): Promise<void> {
+  return invoke("git_reset");
+}
+
+export async function gitCheckoutRevision(hash: string): Promise<void> {
+  return invoke("git_checkout_revision", { hash });
+}

@@ -1,4 +1,6 @@
 import { createSignal, createEffect, untrack, onMount, onCleanup, For, Show } from "solid-js";
+import { listen } from "@tauri-apps/api/event";
+import { notifyGitRefresh } from "../lib/gitRefreshBus";
 import * as monaco from "monaco-editor";
 import { registerRhaiLanguage, RHAI_LANGUAGE_ID } from "../lib/rhaiMonaco";
 import {
@@ -114,6 +116,7 @@ export function ScriptsView() {
       await writeScript(name, value);
       setCurrentContent(value);
       setDirty(false);
+      notifyGitRefresh();
     } catch (e: unknown) {
       const err = e as { message?: string };
       setError(err.message ?? "Failed to save script");
@@ -180,7 +183,13 @@ export function ScriptsView() {
       }
     };
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    const unlistenRestore = listen("bruh://data-restored", () => {
+      loadScriptList();
+    });
+    onCleanup(() => {
+      document.removeEventListener("keydown", onKeyDown);
+      unlistenRestore.then((u) => u());
+    });
   });
 
   onCleanup(() => {
@@ -253,6 +262,7 @@ export function ScriptsView() {
     setError(null);
     try {
       await writeScript(name, DEFAULT_CONTENT);
+      notifyGitRefresh();
       await loadScriptList();
       setSelectedName(name);
       setCurrentContent(DEFAULT_CONTENT);
@@ -269,6 +279,7 @@ export function ScriptsView() {
     setError(null);
     try {
       await deleteScript(name);
+      notifyGitRefresh();
       await loadScriptList();
       if (selectedName() === name) {
         setSelectedName(null);
@@ -289,6 +300,7 @@ export function ScriptsView() {
     setError(null);
     try {
       await renameScript(name, newName);
+      notifyGitRefresh();
       await loadScriptList();
       if (selectedName() === name) {
         setSelectedName(newName);

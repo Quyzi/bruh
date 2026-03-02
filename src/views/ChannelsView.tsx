@@ -1,4 +1,6 @@
-import { createSignal, onMount, For, Show } from "solid-js";
+import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
+import { listen } from "@tauri-apps/api/event";
+import { notifyGitRefresh } from "../lib/gitRefreshBus";
 import {
   loadChannels,
   saveChannels,
@@ -43,6 +45,12 @@ export function ChannelsView() {
     getRequiredChannelScopes()
       .then(setRequiredScopes)
       .catch(() => setRequiredScopes(null));
+    const unlistenRestore = listen("bruh://data-restored", () => {
+      loadChannelsList();
+    });
+    onCleanup(() => {
+      unlistenRestore.then((u) => u());
+    });
   });
 
   const handleAdd = async () => {
@@ -65,6 +73,7 @@ export function ChannelsView() {
       const next = [...channels(), newChannel];
       setChannels(next);
       await saveChannels(next);
+      notifyGitRefresh();
       setChannelsList(next.map((c) => c.login));
       setNewLogin("");
       setShowAddForm(false);
@@ -82,6 +91,7 @@ export function ChannelsView() {
       const next = channels().filter((channel) => channel.login !== login);
       setChannels(next);
       await saveChannels(next);
+      notifyGitRefresh();
       setChannelsList(next.map((c) => c.login));
       setDeleteConfirm(null);
     } catch (e: unknown) {

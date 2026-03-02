@@ -19,6 +19,7 @@ anyhow = "1.0.100"
 async-duckdb = { version = "0.3.1", features = ["bundled", "num", "url", "uuid", "json", "chrono"] }
 futures = "0.3.31"
 futures-util = "0.3"
+gix = { version = "0.70", default-features = false, features = ["revision"] }
 homedir = "0.3.6"
 metrics = "0.24.3"
 metrics-exporter-prometheus = "0.18.1"
