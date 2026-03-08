@@ -10,12 +10,14 @@ const shieldModeEvents: TwitchEventConfig[] = [
     title: "Shield Mode Begin",
     description: "Fires when Shield Mode is activated",
     category: "twitch/shield_mode/begin",
+    outputs: [{ name: "channel", type: "string" }],
   },
   {
     eventType: "channel.shield_mode.end",
     title: "Shield Mode End",
     description: "Fires when Shield Mode is deactivated",
     category: "twitch/shield_mode/end",
+    outputs: [{ name: "channel", type: "string" }],
   },
 ];
 

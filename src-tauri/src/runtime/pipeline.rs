@@ -167,6 +167,24 @@ pub(crate) fn channel_subscription_gift_inner(payload: &Value) -> Option<&Value>
         .or_else(|| message_obj.as_object().and_then(|o| o.values().next()))
 }
 
+/// Extracts the inner event object from any twitch_api serialized Event payload.
+/// twitch_api serializes events as `{ "SomeVariantName": { "subscription": ..., "message": { "Notification": event } } }`.
+/// This walks: top-level single key → get("message") → get("Notification") (or fallback to message itself).
+pub(crate) fn generic_inner(payload: &Value) -> Option<&Value> {
+    let obj = payload.as_object()?;
+    // If there's a single top-level key, it's the enum variant wrapper.
+    if obj.len() == 1 {
+        let variant_val = obj.values().next()?;
+        let message_obj = variant_val.get("message")?;
+        return message_obj
+            .get("Notification")
+            .or_else(|| message_obj.as_object().and_then(|m| m.values().next()))
+            .or(Some(message_obj));
+    }
+    // Flat payload (no variant wrapper): return as-is.
+    Some(payload)
+}
+
 /// Returns the channel identifier for metrics (broadcaster login/name/id) when the event type has one.
 pub fn channel_for_event(subscription_type: &str, payload: &Value) -> Option<String> {
     let inner = match subscription_type {
@@ -174,7 +192,7 @@ pub fn channel_for_event(subscription_type: &str, payload: &Value) -> Option<Str
         "channel.follow" => channel_follow_inner(payload)?,
         "channel.subscribe" => channel_subscribe_inner(payload)?,
         "channel.subscription.gift" => channel_subscription_gift_inner(payload)?,
-        _ => return None,
+        _ => generic_inner(payload).or(Some(payload))?,
     };
     let string_value = inner
         .get("broadcaster_user_login")

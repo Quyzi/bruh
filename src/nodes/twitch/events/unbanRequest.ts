@@ -10,12 +10,20 @@ const unbanRequestEvents: TwitchEventConfig[] = [
     title: "Unban Request Create",
     description: "Fires when an unban request is submitted",
     category: "twitch/unban_request/create",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
   {
     eventType: "channel.unban_request.resolve",
     title: "Unban Request Resolve",
     description: "Fires when an unban request is approved or denied",
     category: "twitch/unban_request/resolve",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
 ];
 

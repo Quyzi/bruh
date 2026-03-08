@@ -10,12 +10,20 @@ const vipEvents: TwitchEventConfig[] = [
     title: "VIP Add",
     description: "Fires when a user is added as a VIP",
     category: "twitch/vip/add",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
   {
     eventType: "channel.vip.remove",
     title: "VIP Remove",
     description: "Fires when a user's VIP status is removed",
     category: "twitch/vip/remove",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
 ];
 

@@ -10,12 +10,20 @@ const bitsEvents: TwitchEventConfig[] = [
     title: "Cheer",
     description: "Fires when a user cheers with Bits",
     category: "twitch/bits/cheer",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
   {
-    eventType: "channel.bits_use",
+    eventType: "channel.bits.use",
     title: "Bits Use",
     description: "Fires when Bits are used in the channel",
     category: "twitch/bits/use",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
 ];
 
