@@ -771,6 +771,11 @@ async fn execute_node(
             super::nodes::execute_database_query(node_value, inputs, database, node_groups).await
         }
         "secrets/get" => super::nodes::execute_get_secret(node_value, secrets, node_groups),
+        "secrets/set" => super::nodes::execute_set_secret(node_value, inputs, secrets, node_groups),
+        "secrets/list" => super::nodes::execute_list_secrets(node_value, secrets, node_groups),
+        "secrets/delete" => {
+            super::nodes::execute_delete_secret(node_value, inputs, secrets, node_groups)
+        }
         _ => {
             tracing::debug!(node_type, node = %label, groups = ?node_groups, "Unknown node type, skip execution");
             Ok(Vec::new())

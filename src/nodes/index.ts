@@ -16,6 +16,9 @@ import { register as registerDatabaseQuery } from "./database/DatabaseQueryNode"
 
 // Secret nodes
 import { register as registerGetSecret } from "./secrets/GetSecretNode";
+import { register as registerSetSecret } from "./secrets/SetSecretNode";
+import { register as registerListSecrets } from "./secrets/ListSecretsNode";
+import { register as registerDeleteSecret } from "./secrets/DeleteSecretNode";
 
 // Utilities nodes
 import { register as registerTimer } from "./utilities/TimerNode";
@@ -84,6 +87,9 @@ export function registerAllNodes() {
 
   // Secrets
   registerGetSecret();
+  registerSetSecret();
+  registerListSecrets();
+  registerDeleteSecret();
 
   // Utilities
   registerTimer();
