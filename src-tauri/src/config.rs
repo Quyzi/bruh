@@ -1,11 +1,19 @@
 use std::{
     fs::{self, OpenOptions},
     io::{Read, Write},
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, sync::LazyLock,
 };
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+static JASON_EXTENSIONS: LazyLock<serde_json::Value> = LazyLock::new(|| {
+    serde_json::json!({
+        "recommendations": [
+            "rhaiscript.vscode-rhai",
+        ],
+    })
+});
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -138,6 +146,25 @@ impl Config {
             if !parent.exists() {
                 fs::create_dir_all(parent).map_err(|e| ConfigError::CreateDir {
                     path: parent.to_path_buf(),
+                    source: e,
+                })?;
+            }
+
+            let vscode_dir = parent.join(".vscode");
+            if !vscode_dir.exists() {
+                fs::create_dir_all(&vscode_dir).map_err(|e| ConfigError::CreateDir {
+                    path: vscode_dir.clone(),
+                    source: e,
+                })?;
+            }
+            let extensions_json = vscode_dir.join("extensions.json");
+            if !extensions_json.exists() {
+                fs::write(
+                    &extensions_json,
+                    JASON_EXTENSIONS.to_string()
+                )
+                .map_err(|e| ConfigError::Write {
+                    path: extensions_json,
                     source: e,
                 })?;
             }
