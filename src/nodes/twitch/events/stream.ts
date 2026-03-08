@@ -10,12 +10,14 @@ const streamEvents: TwitchEventConfig[] = [
     title: "Stream Online",
     description: "Fires when the stream goes live",
     category: "twitch/stream/online",
+    outputs: [{ name: "channel", type: "string" }],
   },
   {
     eventType: "stream.offline",
     title: "Stream Offline",
     description: "Fires when the stream goes offline",
     category: "twitch/stream/offline",
+    outputs: [{ name: "channel", type: "string" }],
   },
 ];
 

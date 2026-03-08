@@ -305,10 +305,40 @@ pub async fn run_eventsub_loop(
             "EventSub: subscribing for channels"
         );
         /// Event types that require the token user to be the broadcaster (Twitch returns 403 otherwise).
+        /// For these, we only subscribe for channels where the bot IS the broadcaster.
         const BROADCASTER_ONLY_EVENT_TYPES: &[&str] = &[
             "channel.follow",
             "channel.subscribe",
+            "channel.subscription.end",
             "channel.subscription.gift",
+            "channel.subscription.message",
+            "channel.bits.use",
+            "channel.ad_break.begin",
+            "channel.poll.begin",
+            "channel.poll.progress",
+            "channel.poll.end",
+            "channel.prediction.begin",
+            "channel.prediction.progress",
+            "channel.prediction.lock",
+            "channel.prediction.end",
+            "channel.hype_train.begin",
+            "channel.hype_train.progress",
+            "channel.hype_train.end",
+            "channel.goal.begin",
+            "channel.goal.progress",
+            "channel.goal.end",
+            "channel.charity_campaign.donate",
+            "channel.charity_campaign.start",
+            "channel.charity_campaign.progress",
+            "channel.charity_campaign.stop",
+            "channel.channel_points_automatic_reward_redemption.add",
+            "channel.channel_points_custom_reward.add",
+            "channel.channel_points_custom_reward.update",
+            "channel.channel_points_custom_reward.remove",
+            "channel.channel_points_custom_reward_redemption.add",
+            "channel.channel_points_custom_reward_redemption.update",
+            "stream.online",
+            "stream.offline",
         ];
         for event_type in &event_types {
             for bid in &broadcaster_ids {
@@ -332,7 +362,60 @@ pub async fn run_eventsub_loop(
                     {
                         let scope_note = match event_type.as_str() {
                             "channel.follow" => "requires moderator:read:followers",
-                            "channel.subscribe" => "requires channel:read:subscriptions",
+                            "channel.subscribe"
+                            | "channel.subscription.end"
+                            | "channel.subscription.gift"
+                            | "channel.subscription.message" => {
+                                "requires channel:read:subscriptions"
+                            }
+                            "channel.moderate"
+                            | "channel.warning.send"
+                            | "channel.warning.acknowledge"
+                            | "channel.unban_request.create"
+                            | "channel.unban_request.resolve"
+                            | "channel.suspicious_user.message"
+                            | "channel.suspicious_user.update" => {
+                                "requires moderator:read:* or moderator:manage:* scopes"
+                            }
+                            "automod.message.hold"
+                            | "automod.message.update"
+                            | "automod.settings.update"
+                            | "automod.terms.update" => "requires moderator:manage:automod",
+                            "channel.poll.begin"
+                            | "channel.poll.progress"
+                            | "channel.poll.end" => "requires channel:read:polls",
+                            "channel.prediction.begin"
+                            | "channel.prediction.progress"
+                            | "channel.prediction.lock"
+                            | "channel.prediction.end" => "requires channel:read:predictions",
+                            "channel.hype_train.begin"
+                            | "channel.hype_train.progress"
+                            | "channel.hype_train.end" => "requires channel:read:hype_train",
+                            "channel.goal.begin"
+                            | "channel.goal.progress"
+                            | "channel.goal.end" => "requires channel:read:goals",
+                            "channel.charity_campaign.donate"
+                            | "channel.charity_campaign.start"
+                            | "channel.charity_campaign.progress"
+                            | "channel.charity_campaign.stop" => {
+                                "requires channel:read:charity"
+                            }
+                            "channel.channel_points_custom_reward.add"
+                            | "channel.channel_points_custom_reward.update"
+                            | "channel.channel_points_custom_reward.remove"
+                            | "channel.channel_points_custom_reward_redemption.add"
+                            | "channel.channel_points_custom_reward_redemption.update"
+                            | "channel.channel_points_automatic_reward_redemption.add" => {
+                                "requires channel:read:redemptions or channel:manage:redemptions"
+                            }
+                            "channel.bits.use" => "requires bits:read",
+                            "channel.cheer" => "requires bits:read",
+                            "channel.shoutout.create" | "channel.shoutout.receive" => {
+                                "requires moderator:read:shoutouts or moderator:manage:shoutouts"
+                            }
+                            "user.whisper.message" => {
+                                "requires user:read:whispers or user:manage:whispers"
+                            }
                             _ => "check required scope for this event type",
                         };
                         format!(
@@ -487,7 +570,7 @@ pub async fn run_eventsub_loop(
 }
 
 /// Subscribes to a single event type via Helix (WebSocket transport).
-/// For channel.chat.message, user_id must be the token holder (the bot reading chat).
+/// For chat/automod/moderation events, the bot's user_id is used as the moderator/user.
 pub async fn subscribe_event_type(
     helix: &twitch_api::HelixClient<'static, reqwest::Client>,
     event_type: &str,
@@ -495,50 +578,798 @@ pub async fn subscribe_event_type(
     broadcaster_id: &twitch_api::types::UserId,
     token: &twitch_api::twitch_oauth2::UserToken,
 ) -> Result<(), anyhow::Error> {
+    use twitch_api::eventsub::channel;
     use twitch_api::eventsub::Transport;
     let transport = Transport::websocket(session_id.to_string());
+    let bot_user_id = token
+        .user_id()
+        .ok_or_else(|| anyhow::anyhow!("token has no user_id"))?
+        .to_owned();
     match event_type {
+        // ── Chat (broadcaster + bot user) ────────────────────────────────────
         "channel.chat.message" => {
-            let bot_user_id = token
-                .user_id()
-                .ok_or_else(|| anyhow::anyhow!("token has no user_id"))?
-                .to_owned();
-            let sub = twitch_api::eventsub::channel::ChannelChatMessageV1::new(
-                broadcaster_id.clone(),
-                bot_user_id,
-            );
             helix
-                .create_eventsub_subscription(sub, transport, token)
+                .create_eventsub_subscription(
+                    channel::ChannelChatMessageV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
         }
-        "channel.follow" => {
-            let sub = twitch_api::eventsub::channel::ChannelFollowV2::new(
-                broadcaster_id.clone(),
-                broadcaster_id.clone(),
-            );
+        "channel.chat.clear" => {
             helix
-                .create_eventsub_subscription(sub, transport, token)
+                .create_eventsub_subscription(
+                    channel::ChannelChatClearV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.chat.clear_user_messages" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelChatClearUserMessagesV1::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.chat.message_delete" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelChatMessageDeleteV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.chat.notification" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelChatNotificationV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.chat_settings.update" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelChatSettingsUpdateV1::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.chat.user_message_hold" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelChatUserMessageHoldV1::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.chat.user_message_update" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelChatUserMessageUpdateV1::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── Broadcaster-scoped: follow/subscribe ─────────────────────────────
+        "channel.follow" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelFollowV2::new(broadcaster_id.clone(), broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
         }
         "channel.subscribe" => {
-            let sub = twitch_api::eventsub::channel::ChannelSubscribeV1::broadcaster_user_id(
-                broadcaster_id.clone(),
-            );
             helix
-                .create_eventsub_subscription(sub, transport, token)
+                .create_eventsub_subscription(
+                    channel::ChannelSubscribeV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.subscription.end" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelSubscriptionEndV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
         }
         "channel.subscription.gift" => {
-            let sub = twitch_api::eventsub::channel::ChannelSubscriptionGiftV1::broadcaster_user_id(
-                broadcaster_id.clone(),
-            );
             helix
-                .create_eventsub_subscription(sub, transport, token)
+                .create_eventsub_subscription(
+                    channel::ChannelSubscriptionGiftV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.subscription.message" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelSubscriptionMessageV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── Broadcaster-scoped: channel metadata ─────────────────────────────
+        "channel.update" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelUpdateV2::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.ban" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelBanV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.unban" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelUnbanV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.cheer" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelCheerV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.bits.use" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelBitsUseV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.raid" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelRaidV1::to_broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.ad_break.begin" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelAdBreakBeginV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── Moderation (broadcaster + moderator = bot) ───────────────────────
+        "channel.moderate" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelModerateV2::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.moderator.add" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelModeratorAddV1::new(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.moderator.remove" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelModeratorRemoveV1::new(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.vip.add" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelVipAddV1::new(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.vip.remove" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelVipRemoveV1::new(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.shoutout.create" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelShoutoutCreateV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.shoutout.receive" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelShoutoutReceiveV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.shield_mode.begin" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelShieldModeBeginV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.shield_mode.end" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelShieldModeEndV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.warning.send" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelWarningSendV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.warning.acknowledge" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelWarningAcknowledgeV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.unban_request.create" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelUnbanRequestCreateV1::new(broadcaster_id.clone(), bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.unban_request.resolve" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelUnbanRequestResolveV1::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.suspicious_user.message" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelSuspiciousUserMessageV1::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.suspicious_user.update" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelSuspiciousUserUpdateV1::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── AutoMod (broadcaster + moderator = bot) ──────────────────────────
+        "automod.message.hold" => {
+            helix
+                .create_eventsub_subscription(
+                    twitch_api::eventsub::automod::AutomodMessageHoldV2::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "automod.message.update" => {
+            helix
+                .create_eventsub_subscription(
+                    twitch_api::eventsub::automod::AutomodMessageUpdateV2::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "automod.settings.update" => {
+            helix
+                .create_eventsub_subscription(
+                    twitch_api::eventsub::automod::AutomodSettingsUpdateV1::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "automod.terms.update" => {
+            helix
+                .create_eventsub_subscription(
+                    twitch_api::eventsub::automod::AutomodTermsUpdateV1::new(
+                        broadcaster_id.clone(),
+                        bot_user_id,
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── Polls / Predictions / Hype Train / Goals ─────────────────────────
+        "channel.poll.begin" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPollBeginV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.poll.progress" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPollProgressV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.poll.end" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPollEndV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.prediction.begin" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPredictionBeginV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.prediction.progress" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPredictionProgressV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.prediction.lock" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPredictionLockV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.prediction.end" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPredictionEndV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.hype_train.begin" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelHypeTrainBeginV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.hype_train.progress" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelHypeTrainProgressV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.hype_train.end" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelHypeTrainEndV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.goal.begin" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelGoalBeginV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.goal.progress" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelGoalProgressV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.goal.end" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelGoalEndV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── Charity ──────────────────────────────────────────────────────────
+        "channel.charity_campaign.donate" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelCharityCampaignDonateV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.charity_campaign.start" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelCharityCampaignStartV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.charity_campaign.progress" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelCharityCampaignProgressV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.charity_campaign.stop" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelCharityCampaignStopV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── Channel Points ───────────────────────────────────────────────────
+        "channel.channel_points_automatic_reward_redemption.add" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPointsAutomaticRewardRedemptionAddV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.channel_points_custom_reward.add" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPointsCustomRewardAddV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.channel_points_custom_reward.update" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPointsCustomRewardUpdateV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.channel_points_custom_reward.remove" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPointsCustomRewardRemoveV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.channel_points_custom_reward_redemption.add" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPointsCustomRewardRedemptionAddV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.channel_points_custom_reward_redemption.update" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelPointsCustomRewardRedemptionUpdateV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── Shared Chat ──────────────────────────────────────────────────────
+        "channel.shared_chat.begin" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelSharedChatBeginV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.shared_chat.update" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelSharedChatUpdateV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "channel.shared_chat.end" => {
+            helix
+                .create_eventsub_subscription(
+                    channel::ChannelSharedChatEndV1::broadcaster_user_id(broadcaster_id.clone()),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── Stream ───────────────────────────────────────────────────────────
+        "stream.online" => {
+            helix
+                .create_eventsub_subscription(
+                    twitch_api::eventsub::stream::StreamOnlineV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "stream.offline" => {
+            helix
+                .create_eventsub_subscription(
+                    twitch_api::eventsub::stream::StreamOfflineV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── User (bot user only) ─────────────────────────────────────────────
+        "user.update" => {
+            helix
+                .create_eventsub_subscription(
+                    twitch_api::eventsub::user::UserUpdateV1::new(bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        "user.whisper.message" => {
+            helix
+                .create_eventsub_subscription(
+                    twitch_api::eventsub::user::UserWhisperMessageV1::new(bot_user_id),
+                    transport,
+                    token,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+        // ── Not supported with user token auth ───────────────────────────────
+        "user.authorization.grant"
+        | "user.authorization.revoke"
+        | "drop.entitlement.grant"
+        | "extension.bits_transaction.create"
+        | "conduit.shard.disabled"
+        | "channel.guest_star_session.begin"
+        | "channel.guest_star_session.end"
+        | "channel.guest_star_guest.update"
+        | "channel.guest_star_settings.update" => {
+            tracing::warn!(
+                event_type,
+                "EventSub: event type requires app access token or special setup, skipping subscription"
+            );
         }
         _ => return Err(anyhow::anyhow!("unsupported event type: {}", event_type)),
     }

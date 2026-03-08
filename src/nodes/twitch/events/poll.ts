@@ -10,18 +10,21 @@ const pollEvents: TwitchEventConfig[] = [
     title: "Poll Begin",
     description: "Fires when a poll starts",
     category: "twitch/poll/begin",
+    outputs: [{ name: "channel", type: "string" }],
   },
   {
     eventType: "channel.poll.progress",
     title: "Poll Progress",
     description: "Fires when votes are cast in a poll",
     category: "twitch/poll/progress",
+    outputs: [{ name: "channel", type: "string" }],
   },
   {
     eventType: "channel.poll.end",
     title: "Poll End",
     description: "Fires when a poll ends",
     category: "twitch/poll/end",
+    outputs: [{ name: "channel", type: "string" }],
   },
 ];
 

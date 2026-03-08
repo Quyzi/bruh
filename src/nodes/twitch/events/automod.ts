@@ -10,24 +10,34 @@ const automodEvents: TwitchEventConfig[] = [
     title: "AutoMod Message Hold",
     description: "Fires when AutoMod holds a message for review",
     category: "twitch/automod/message_hold",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
   {
     eventType: "automod.message.update",
     title: "AutoMod Message Update",
     description: "Fires when a held AutoMod message is approved or denied",
     category: "twitch/automod/message_update",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
   {
     eventType: "automod.settings.update",
     title: "AutoMod Settings Update",
     description: "Fires when AutoMod settings are updated",
     category: "twitch/automod/settings_update",
+    outputs: [{ name: "channel", type: "string" }],
   },
   {
     eventType: "automod.terms.update",
     title: "AutoMod Terms Update",
     description: "Fires when AutoMod blocked/permitted terms are updated",
     category: "twitch/automod/terms_update",
+    outputs: [{ name: "channel", type: "string" }],
   },
 ];
 

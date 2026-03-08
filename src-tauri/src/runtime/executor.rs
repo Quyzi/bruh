@@ -471,14 +471,14 @@ fn inject_event_into_slots(
                 .unwrap_or_else(|| Value::String(String::new()));
             let user = get_user_from_follow_payload(payload)
                 .unwrap_or_else(|| Value::String(String::new()));
-            slot_values.insert((source_id, 1), channel);
-            slot_values.insert((source_id, 2), user);
+            slot_values.insert((source_id, 0), channel);
+            slot_values.insert((source_id, 1), user);
             if let Some(label) = source_label {
-                tracing::trace!(source_id, node = %label, groups = ?log_groups, "Injected channel.follow slots 1,2 (channel, user)");
+                tracing::trace!(source_id, node = %label, groups = ?log_groups, "Injected channel.follow slots 0,1 (channel, user)");
             } else {
                 tracing::trace!(
                     source_id,
-                    "Injected channel.follow slots 1,2 (channel, user)"
+                    "Injected channel.follow slots 0,1 (channel, user)"
                 );
             }
         }
@@ -490,14 +490,14 @@ fn inject_event_into_slots(
             let tier = get_tier_from_subscribe_payload(payload)
                 .unwrap_or_else(|| Value::String(String::new()));
             let gift = get_gift_from_subscribe_payload(payload).unwrap_or(Value::Bool(false));
-            slot_values.insert((source_id, 1), channel);
-            slot_values.insert((source_id, 2), user);
-            slot_values.insert((source_id, 3), tier);
-            slot_values.insert((source_id, 4), gift);
+            slot_values.insert((source_id, 0), channel);
+            slot_values.insert((source_id, 1), user);
+            slot_values.insert((source_id, 2), tier);
+            slot_values.insert((source_id, 3), gift);
             if let Some(label) = source_label {
-                tracing::trace!(source_id, node = %label, groups = ?log_groups, "Injected channel.subscribe slots 1,2,3,4");
+                tracing::trace!(source_id, node = %label, groups = ?log_groups, "Injected channel.subscribe slots 0,1,2,3");
             } else {
-                tracing::trace!(source_id, "Injected channel.subscribe slots 1,2,3,4");
+                tracing::trace!(source_id, "Injected channel.subscribe slots 0,1,2,3");
             }
         }
         "channel.subscription.gift" => {
@@ -514,16 +514,16 @@ fn inject_event_into_slots(
                     None => Value::Null,
                 },
             };
-            slot_values.insert((source_id, 1), channel);
-            slot_values.insert((source_id, 2), user);
-            slot_values.insert((source_id, 3), tier);
-            slot_values.insert((source_id, 4), total);
+            slot_values.insert((source_id, 0), channel);
+            slot_values.insert((source_id, 1), user);
+            slot_values.insert((source_id, 2), tier);
+            slot_values.insert((source_id, 3), total);
             if let Some(label) = source_label {
-                tracing::trace!(source_id, node = %label, groups = ?log_groups, "Injected channel.subscription.gift slots 1,2,3,4");
+                tracing::trace!(source_id, node = %label, groups = ?log_groups, "Injected channel.subscription.gift slots 0,1,2,3");
             } else {
                 tracing::trace!(
                     source_id,
-                    "Injected channel.subscription.gift slots 1,2,3,4"
+                    "Injected channel.subscription.gift slots 0,1,2,3"
                 );
             }
         }
@@ -546,17 +546,24 @@ fn inject_event_into_slots(
             }
         }
         _ => {
+            // Generic fallback: extract broadcaster (slot 0) and user (slot 1) from any event.
+            let channel = get_generic_channel_from_payload(payload)
+                .unwrap_or_else(|| Value::String(String::new()));
+            let user = get_generic_user_from_payload(payload)
+                .unwrap_or_else(|| Value::String(String::new()));
+            slot_values.insert((source_id, 0), channel);
+            slot_values.insert((source_id, 1), user);
             if let Some(label) = source_label {
                 tracing::trace!(
                     subscription_type = %event.subscription_type,
                     node = %label,
                     groups = ?log_groups,
-                    "No injector for event type, skipping"
+                    "Injected generic event slots 0,1 (channel, user)"
                 );
             } else {
                 tracing::trace!(
                     subscription_type = %event.subscription_type,
-                    "No injector for event type, skipping"
+                    "Injected generic event slots 0,1 (channel, user)"
                 );
             }
         }
@@ -676,6 +683,28 @@ fn get_total_from_gift_payload(payload: &Value) -> Option<Value> {
     let inner = pipeline::channel_subscription_gift_inner(payload)?;
     let n = inner.get("total").and_then(|v| v.as_i64())?;
     serde_json::to_value(n).ok()
+}
+
+fn get_generic_channel_from_payload(payload: &Value) -> Option<Value> {
+    let inner = pipeline::generic_inner(payload).or(Some(payload))?;
+    let s = inner
+        .get("broadcaster_user_login")
+        .and_then(|v| v.as_str())
+        .or_else(|| inner.get("broadcaster_user_name").and_then(|v| v.as_str()))
+        .or_else(|| inner.get("broadcaster_user_id").and_then(|v| v.as_str()))?;
+    Some(Value::String(s.to_string()))
+}
+
+fn get_generic_user_from_payload(payload: &Value) -> Option<Value> {
+    let inner = pipeline::generic_inner(payload).or(Some(payload))?;
+    let s = inner
+        .get("user_login")
+        .and_then(|v| v.as_str())
+        .or_else(|| inner.get("user_name").and_then(|v| v.as_str()))
+        .or_else(|| inner.get("user_id").and_then(|v| v.as_str()))
+        .or_else(|| inner.get("from_broadcaster_user_login").and_then(|v| v.as_str()))
+        .or_else(|| inner.get("chatter_user_login").and_then(|v| v.as_str()));
+    Some(Value::String(s.unwrap_or("").to_string()))
 }
 
 /// Resolves input slot values for a node from the reverse index and slot store.

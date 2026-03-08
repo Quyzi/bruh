@@ -22,6 +22,11 @@ const subscriptionEvents: TwitchEventConfig[] = [
     title: "Subscription End",
     description: "Fires when a user's subscription ends",
     category: "twitch/subscription/end",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+      { name: "tier", type: "string" },
+    ],
   },
   {
     eventType: "channel.subscription.gift",
@@ -40,6 +45,11 @@ const subscriptionEvents: TwitchEventConfig[] = [
     title: "Subscription Message",
     description: "Fires when a user sends a resub message",
     category: "twitch/subscription/message",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+      { name: "tier", type: "string" },
+    ],
   },
 ];
 

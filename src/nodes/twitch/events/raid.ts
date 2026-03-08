@@ -10,6 +10,10 @@ const raidEvents: TwitchEventConfig[] = [
     title: "Raid",
     description: "Fires when a channel raids or is raided",
     category: "twitch/raid/raid",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
 ];
 

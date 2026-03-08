@@ -10,12 +10,17 @@ const chatEvents: TwitchEventConfig[] = [
     title: "Chat Clear",
     description: "Fires when chat is cleared by a moderator",
     category: "twitch/chat/clear",
+    outputs: [{ name: "channel", type: "string" }],
   },
   {
     eventType: "channel.chat.clear_user_messages",
     title: "Chat Clear User Messages",
     description: "Fires when a specific user's messages are cleared",
     category: "twitch/chat/clear_user_messages",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
   {
     eventType: "channel.chat.message",
@@ -28,30 +33,47 @@ const chatEvents: TwitchEventConfig[] = [
     title: "Chat Message Delete",
     description: "Fires when a chat message is deleted",
     category: "twitch/chat/message_delete",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
   {
     eventType: "channel.chat.notification",
     title: "Chat Notification",
     description: "Fires for chat notifications (subs, raids, etc.)",
     category: "twitch/chat/notification",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
   {
-    eventType: "channel.chat.settings_update",
+    eventType: "channel.chat_settings.update",
     title: "Chat Settings Update",
     description: "Fires when chat room settings are updated",
     category: "twitch/chat/settings_update",
+    outputs: [{ name: "channel", type: "string" }],
   },
   {
     eventType: "channel.chat.user_message_hold",
     title: "Chat User Message Hold",
     description: "Fires when a user's message is held for review",
     category: "twitch/chat/user_message_hold",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
   {
     eventType: "channel.chat.user_message_update",
     title: "Chat User Message Update",
     description: "Fires when a held user message is approved or denied",
     category: "twitch/chat/user_message_update",
+    outputs: [
+      { name: "channel", type: "string" },
+      { name: "user", type: "string" },
+    ],
   },
 ];
 
