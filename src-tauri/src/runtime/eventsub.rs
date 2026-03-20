@@ -381,9 +381,9 @@ pub async fn run_eventsub_loop(
                             | "automod.message.update"
                             | "automod.settings.update"
                             | "automod.terms.update" => "requires moderator:manage:automod",
-                            "channel.poll.begin"
-                            | "channel.poll.progress"
-                            | "channel.poll.end" => "requires channel:read:polls",
+                            "channel.poll.begin" | "channel.poll.progress" | "channel.poll.end" => {
+                                "requires channel:read:polls"
+                            }
                             "channel.prediction.begin"
                             | "channel.prediction.progress"
                             | "channel.prediction.lock"
@@ -391,15 +391,13 @@ pub async fn run_eventsub_loop(
                             "channel.hype_train.begin"
                             | "channel.hype_train.progress"
                             | "channel.hype_train.end" => "requires channel:read:hype_train",
-                            "channel.goal.begin"
-                            | "channel.goal.progress"
-                            | "channel.goal.end" => "requires channel:read:goals",
+                            "channel.goal.begin" | "channel.goal.progress" | "channel.goal.end" => {
+                                "requires channel:read:goals"
+                            }
                             "channel.charity_campaign.donate"
                             | "channel.charity_campaign.start"
                             | "channel.charity_campaign.progress"
-                            | "channel.charity_campaign.stop" => {
-                                "requires channel:read:charity"
-                            }
+                            | "channel.charity_campaign.stop" => "requires channel:read:charity",
                             "channel.channel_points_custom_reward.add"
                             | "channel.channel_points_custom_reward.update"
                             | "channel.channel_points_custom_reward.remove"
@@ -643,10 +641,7 @@ pub async fn subscribe_event_type(
         "channel.chat_settings.update" => {
             helix
                 .create_eventsub_subscription(
-                    channel::ChannelChatSettingsUpdateV1::new(
-                        broadcaster_id.clone(),
-                        bot_user_id,
-                    ),
+                    channel::ChannelChatSettingsUpdateV1::new(broadcaster_id.clone(), bot_user_id),
                     transport,
                     token,
                 )
@@ -656,10 +651,7 @@ pub async fn subscribe_event_type(
         "channel.chat.user_message_hold" => {
             helix
                 .create_eventsub_subscription(
-                    channel::ChannelChatUserMessageHoldV1::new(
-                        broadcaster_id.clone(),
-                        bot_user_id,
-                    ),
+                    channel::ChannelChatUserMessageHoldV1::new(broadcaster_id.clone(), bot_user_id),
                     transport,
                     token,
                 )
@@ -713,9 +705,7 @@ pub async fn subscribe_event_type(
         "channel.subscription.gift" => {
             helix
                 .create_eventsub_subscription(
-                    channel::ChannelSubscriptionGiftV1::broadcaster_user_id(
-                        broadcaster_id.clone(),
-                    ),
+                    channel::ChannelSubscriptionGiftV1::broadcaster_user_id(broadcaster_id.clone()),
                     transport,
                     token,
                 )
@@ -929,10 +919,7 @@ pub async fn subscribe_event_type(
         "channel.unban_request.resolve" => {
             helix
                 .create_eventsub_subscription(
-                    channel::ChannelUnbanRequestResolveV1::new(
-                        broadcaster_id.clone(),
-                        bot_user_id,
-                    ),
+                    channel::ChannelUnbanRequestResolveV1::new(broadcaster_id.clone(), bot_user_id),
                     transport,
                     token,
                 )
@@ -1052,9 +1039,7 @@ pub async fn subscribe_event_type(
         "channel.prediction.begin" => {
             helix
                 .create_eventsub_subscription(
-                    channel::ChannelPredictionBeginV1::broadcaster_user_id(
-                        broadcaster_id.clone(),
-                    ),
+                    channel::ChannelPredictionBeginV1::broadcaster_user_id(broadcaster_id.clone()),
                     transport,
                     token,
                 )
@@ -1159,7 +1144,9 @@ pub async fn subscribe_event_type(
         "channel.charity_campaign.donate" => {
             helix
                 .create_eventsub_subscription(
-                    channel::ChannelCharityCampaignDonateV1::broadcaster_user_id(broadcaster_id.clone()),
+                    channel::ChannelCharityCampaignDonateV1::broadcaster_user_id(
+                        broadcaster_id.clone(),
+                    ),
                     transport,
                     token,
                 )
@@ -1279,9 +1266,7 @@ pub async fn subscribe_event_type(
         "channel.shared_chat.begin" => {
             helix
                 .create_eventsub_subscription(
-                    channel::ChannelSharedChatBeginV1::broadcaster_user_id(
-                        broadcaster_id.clone(),
-                    ),
+                    channel::ChannelSharedChatBeginV1::broadcaster_user_id(broadcaster_id.clone()),
                     transport,
                     token,
                 )
@@ -1291,9 +1276,7 @@ pub async fn subscribe_event_type(
         "channel.shared_chat.update" => {
             helix
                 .create_eventsub_subscription(
-                    channel::ChannelSharedChatUpdateV1::broadcaster_user_id(
-                        broadcaster_id.clone(),
-                    ),
+                    channel::ChannelSharedChatUpdateV1::broadcaster_user_id(broadcaster_id.clone()),
                     transport,
                     token,
                 )

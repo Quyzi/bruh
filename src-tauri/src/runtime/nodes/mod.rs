@@ -1,5 +1,6 @@
 //! Typed workflow node definitions: one struct per node type, parse from JSON.
 
+mod ai_prompt;
 mod database_query;
 mod delete_secret;
 mod generic_event_source;
@@ -28,6 +29,7 @@ pub use twitch_chat_message_prefix::{
 pub use twitch_send_chat::{try_parse as try_parse_twitch_send_chat, TwitchSendChat};
 
 /// Re-export execute functions for use by the executor.
+pub(crate) use ai_prompt::execute as execute_ai_prompt;
 pub(crate) use database_query::execute as execute_database_query;
 pub(crate) use delete_secret::execute as execute_delete_secret;
 pub(crate) use get_secret::execute as execute_get_secret;
@@ -61,6 +63,7 @@ pub fn role_for_type(type_str: &str) -> NodeRole {
         "twitch/subscription/subscribe" => NodeRole::EventSource,
         "twitch/subscription/gift" => NodeRole::EventSource,
         "utilities/Timer" => NodeRole::EventSource,
+        "ai/prompt" => NodeRole::Transformer,
         "script/rhai" => NodeRole::Transformer,
         "secrets/get" => NodeRole::Transformer,
         "secrets/list" => NodeRole::Transformer,
