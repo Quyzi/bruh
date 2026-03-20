@@ -702,7 +702,11 @@ fn get_generic_user_from_payload(payload: &Value) -> Option<Value> {
         .and_then(|v| v.as_str())
         .or_else(|| inner.get("user_name").and_then(|v| v.as_str()))
         .or_else(|| inner.get("user_id").and_then(|v| v.as_str()))
-        .or_else(|| inner.get("from_broadcaster_user_login").and_then(|v| v.as_str()))
+        .or_else(|| {
+            inner
+                .get("from_broadcaster_user_login")
+                .and_then(|v| v.as_str())
+        })
         .or_else(|| inner.get("chatter_user_login").and_then(|v| v.as_str()));
     Some(Value::String(s.unwrap_or("").to_string()))
 }
@@ -775,6 +779,9 @@ async fn execute_node(
         "secrets/list" => super::nodes::execute_list_secrets(node_value, secrets, node_groups),
         "secrets/delete" => {
             super::nodes::execute_delete_secret(node_value, inputs, secrets, node_groups)
+        }
+        "ai/prompt" => {
+            super::nodes::execute_ai_prompt(node_value, inputs, secrets, config, node_groups).await
         }
         _ => {
             tracing::debug!(node_type, node = %label, groups = ?node_groups, "Unknown node type, skip execution");

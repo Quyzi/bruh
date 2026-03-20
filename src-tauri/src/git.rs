@@ -4,10 +4,7 @@
 //! The secrets key file is **never** tracked — it is listed first in the
 //! auto-created `.gitignore`.
 
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{Context, Result};
 use gix::bstr::ByteSlice;
@@ -335,7 +332,9 @@ impl GitManager {
                 });
             }
 
-            let scripts_tree = gix::objs::Tree { entries: script_entries };
+            let scripts_tree = gix::objs::Tree {
+                entries: script_entries,
+            };
             let scripts_tree_id = repo.write_object(&scripts_tree)?.detach();
             root_entries.push(gix::objs::tree::Entry {
                 mode: gix::objs::tree::EntryKind::Tree.into(),
@@ -345,7 +344,9 @@ impl GitManager {
         }
 
         root_entries.sort_by(|a, b| a.filename.cmp(&b.filename));
-        let root_tree = gix::objs::Tree { entries: root_entries };
+        let root_tree = gix::objs::Tree {
+            entries: root_entries,
+        };
         let tree_oid = repo.write_object(&root_tree)?.detach();
 
         let now = std::time::SystemTime::now()
@@ -363,7 +364,14 @@ impl GitManager {
             },
         };
 
-        repo.commit_as(sig.to_ref(), sig.to_ref(), "HEAD", message, tree_oid, parents)?;
+        repo.commit_as(
+            sig.to_ref(),
+            sig.to_ref(),
+            "HEAD",
+            message,
+            tree_oid,
+            parents,
+        )?;
 
         // Keep the index in sync so `git status` reflects the committed tree
         self.update_index_to_tree(&repo, tree_oid)
@@ -475,21 +483,27 @@ impl GitManager {
 pub fn git_get_status(config: State<'_, Config>) -> Result<GitStatusResult, CommandError> {
     GitManager::new(&config)
         .get_status()
-        .map_err(|e| CommandError { message: e.to_string() })
+        .map_err(|e| CommandError {
+            message: e.to_string(),
+        })
 }
 
 #[tauri::command]
 pub fn git_commit(message: String, config: State<'_, Config>) -> Result<(), CommandError> {
     GitManager::new(&config)
         .do_commit(message)
-        .map_err(|e| CommandError { message: e.to_string() })
+        .map_err(|e| CommandError {
+            message: e.to_string(),
+        })
 }
 
 #[tauri::command]
 pub fn git_reset(config: State<'_, Config>, app: AppHandle) -> Result<(), CommandError> {
     GitManager::new(&config)
         .do_reset_hard()
-        .map_err(|e| CommandError { message: e.to_string() })?;
+        .map_err(|e| CommandError {
+            message: e.to_string(),
+        })?;
     app.emit("bruh://data-restored", ()).ok();
     Ok(())
 }
@@ -502,7 +516,9 @@ pub fn git_checkout_revision(
 ) -> Result<(), CommandError> {
     GitManager::new(&config)
         .do_checkout(&hash)
-        .map_err(|e| CommandError { message: e.to_string() })?;
+        .map_err(|e| CommandError {
+            message: e.to_string(),
+        })?;
     app.emit("bruh://data-restored", ()).ok();
     Ok(())
 }

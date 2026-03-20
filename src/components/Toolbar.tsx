@@ -14,6 +14,7 @@ const MAIN_TABS: Tab[] = [
   { id: "channels", label: "Channels" },
   { id: "workflow", label: "Workflow Editor" },
   { id: "scripts", label: "Scripts" },
+  { id: "ai-agents", label: "AI Agents" },
   { id: "secrets", label: "Secrets" },
   { id: "database", label: "Database" },
   { id: "setup", label: "Setup" },

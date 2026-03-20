@@ -1,0 +1,239 @@
+import { LiteGraph, LGraphCanvas } from "litegraph.js";
+import { listAiAgents } from "../../lib/tauri";
+
+const EMPTY_PLACEHOLDER = "(no agents configured)";
+
+const LINE_H = 14;
+const PADDING = 8;
+const MIN_LINES = 3;
+
+function addPromptWidget(node: any, initialValue: string) {
+  const widget: any = {
+    type: "custom_textarea",
+    name: "Prompt",
+    value: initialValue,
+    options: {},
+    _activeTextarea: null as HTMLTextAreaElement | null,
+
+    computeSize(width: number): [number, number] {
+      const lineCount = Math.max(MIN_LINES, widget.value.split("\n").length);
+      return [width, lineCount * LINE_H + PADDING * 2 + 4];
+    },
+
+    draw(ctx: CanvasRenderingContext2D, node: any, widget_width: number, y: number, _H: number) {
+      const minH = widget.computeSize(widget_width)[1];
+      const height = Math.max(minH, node.size[1] - y - 4);
+      const margin = 6;
+
+      ctx.fillStyle = "#161622";
+      ctx.strokeStyle = widget._activeTextarea ? "#646cff" : "#3a3a50";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      (ctx as any).roundRect(margin, y, widget_width - margin * 2, height, [4]);
+      ctx.fill();
+      ctx.stroke();
+
+      if (!widget._activeTextarea) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(margin + 1, y + 1, widget_width - margin * 2 - 2, height - 2);
+        ctx.clip();
+        ctx.font = "11px monospace";
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#a0a0c0";
+
+        const innerWidth = widget_width - margin * 2 - PADDING * 2;
+        let lineY = y + PADDING + LINE_H - 2;
+        for (const raw of widget.value.split("\n")) {
+          if (!raw) {
+            lineY += LINE_H;
+            continue;
+          }
+          let cur = "";
+          for (const word of raw.split(" ")) {
+            const test = cur ? cur + " " + word : word;
+            if (ctx.measureText(test).width > innerWidth && cur) {
+              ctx.fillText(cur, margin + PADDING, lineY);
+              lineY += LINE_H;
+              cur = word;
+            } else {
+              cur = test;
+            }
+          }
+          if (cur) {
+            ctx.fillText(cur, margin + PADDING, lineY);
+            lineY += LINE_H;
+          }
+        }
+        ctx.restore();
+      }
+    },
+
+    mouse(event: MouseEvent, _pos: [number, number], node: any) {
+      if (event.type !== (LiteGraph as any).pointerevents_method + "down") return false;
+      if (widget._activeTextarea) {
+        widget._activeTextarea.focus();
+        return true;
+      }
+
+      const lgCanvas = (LGraphCanvas as any).active_canvas;
+      if (!lgCanvas) return false;
+      const canvas = lgCanvas.canvas as HTMLCanvasElement;
+      const rect = canvas.getBoundingClientRect();
+      const ds = lgCanvas.ds;
+
+      const graphX = node.pos[0] + 6;
+      const graphY = node.pos[1] + (widget.last_y ?? 0);
+      const screenX = (graphX + ds.offset[0]) * ds.scale + rect.left;
+      const screenY = (graphY + ds.offset[1]) * ds.scale + rect.top;
+      const screenW = (node.size[0] - 12) * ds.scale;
+      const lastY = widget.last_y ?? 0;
+      const minH = widget.computeSize(node.size[0])[1];
+      const screenH = Math.max(minH, node.size[1] - lastY - 4) * ds.scale;
+
+      const ta = document.createElement("textarea");
+      ta.value = widget.value;
+      ta.style.cssText = `
+        position: fixed;
+        left: ${screenX}px;
+        top: ${screenY}px;
+        width: ${screenW}px;
+        height: ${screenH}px;
+        font-family: monospace;
+        font-size: ${11 * ds.scale}px;
+        line-height: ${LINE_H * ds.scale}px;
+        background: #161622;
+        color: #a0a0c0;
+        border: 1.5px solid #646cff;
+        border-radius: 4px;
+        padding: ${PADDING * ds.scale}px;
+        resize: none;
+        box-sizing: border-box;
+        z-index: 9999;
+        outline: none;
+        overflow: auto;
+        white-space: pre;
+        caret-color: #646cff;
+      `;
+      document.body.appendChild(ta);
+      widget._activeTextarea = ta;
+      setTimeout(() => {
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      }, 0);
+      node.setDirtyCanvas(true, true);
+
+      const commit = () => {
+        widget.value = ta.value;
+        node.properties.prompt = ta.value;
+        if (node.graph) node.graph._version++;
+        cleanup();
+      };
+
+      const cleanup = () => {
+        if (ta.parentNode) ta.parentNode.removeChild(ta);
+        widget._activeTextarea = null;
+        node.setDirtyCanvas(true, true);
+      };
+
+      ta.addEventListener("blur", commit);
+      ta.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          cleanup();
+        }
+      });
+
+      return true;
+    },
+  };
+
+  node.widgets = node.widgets ?? [];
+  node.widgets.push(widget);
+  return widget;
+}
+
+export function AiPromptNode(this: any) {
+  this.addInput("input1", "string");
+  this.addInput("input2", "string");
+  this.addInput("input3", "string");
+  this.addInput("input4", "string");
+  this.addInput("input5", "string");
+  this.addOutput("response", "string");
+
+  this.properties = { agentName: "", prompt: "" };
+
+  this.addWidget(
+    "combo",
+    "Agent",
+    this.properties.agentName,
+    (value: string) => {
+      this.properties.agentName = value === EMPTY_PLACEHOLDER ? "" : value;
+    },
+    { values: [EMPTY_PLACEHOLDER] }
+  );
+
+  addPromptWidget(this, this.properties.prompt);
+
+  this.serialize_widgets = true;
+  const slotH = (LiteGraph as any).NODE_SLOT_HEIGHT ?? 20;
+  this.size = [280, 5 * slotH + 28 + MIN_LINES * LINE_H + PADDING * 2 + 4];
+}
+
+AiPromptNode.prototype.computeSize = function (this: any): [number, number] {
+  const w = Math.max(this.size?.[0] ?? 280, 280);
+  const promptWidget = this.widgets?.find((w: any) => w.name === "Prompt");
+  const promptH = promptWidget
+    ? promptWidget.computeSize(w)[1]
+    : MIN_LINES * LINE_H + PADDING * 2 + 4;
+  const slotH = (LiteGraph as any).NODE_SLOT_HEIGHT ?? 20;
+  const slots = Math.max(this.inputs?.length ?? 0, this.outputs?.length ?? 0);
+  // 28 accounts for the standard combo widget row
+  return [w, slots * slotH + 28 + promptH];
+};
+
+AiPromptNode.prototype.onRemoved = function (this: any) {
+  const promptWidget = this.widgets?.find((w: any) => w.name === "Prompt" && w._activeTextarea !== undefined);
+  if (promptWidget?._activeTextarea?.parentNode) {
+    promptWidget._activeTextarea.parentNode.removeChild(promptWidget._activeTextarea);
+    promptWidget._activeTextarea = null;
+  }
+};
+
+AiPromptNode.prototype.onAdded = function (this: any) {
+  const node = this;
+  listAiAgents()
+    .then((agents) => {
+      const names = agents.map((a) => a.name);
+      const values = names.length > 0 ? names : [EMPTY_PLACEHOLDER];
+      const agentWidget = node.widgets?.find(
+        (w: any) => w.name === "Agent" && w.options?.values
+      );
+      if (agentWidget) {
+        agentWidget.options.values = values;
+        if (!agentWidget.value || agentWidget.value === EMPTY_PLACEHOLDER) {
+          agentWidget.value = values[0];
+          node.properties.agentName = names.length > 0 ? names[0] : "";
+        } else if (names.includes(agentWidget.value)) {
+          node.properties.agentName = agentWidget.value;
+        }
+        node.setDirtyCanvas(true);
+      }
+    })
+    .catch(() => {
+      const agentWidget = node.widgets?.find(
+        (w: any) => w.name === "Agent" && w.options?.values
+      );
+      if (agentWidget) {
+        agentWidget.options.values = [EMPTY_PLACEHOLDER];
+        node.setDirtyCanvas(true);
+      }
+    });
+};
+
+AiPromptNode.title = "AI Prompt";
+AiPromptNode.desc = "Send a prompt to an AI provider and return the response";
+
+export function register() {
+  LiteGraph.registerNodeType("ai/prompt", AiPromptNode as any);
+}

@@ -5,12 +5,13 @@ import { ChannelsView } from "./views/ChannelsView";
 import { SetupView } from "./views/SetupView";
 import { WorkflowView } from "./views/WorkflowView";
 import { ScriptsView } from "./views/ScriptsView";
+import { AiAgentsView } from "./views/AiAgentsView";
 import { SecretsView } from "./views/SecretsView";
 import { DatabaseView } from "./views/DatabaseView";
 import { HelpView } from "./docs/HelpView";
 import "./App.css";
 
-export type TabId = "dashboard" | "channels" | "workflow" | "scripts" | "secrets" | "database" | "setup" | "help";
+export type TabId = "dashboard" | "channels" | "workflow" | "scripts" | "ai-agents" | "secrets" | "database" | "setup" | "help";
 
 // Check for callback URL immediately (before component renders)
 const initialUrl = new URL(window.location.href);
@@ -140,8 +141,11 @@ function App() {
       <div class={activeTab() === "scripts" ? "h-full flex flex-col min-h-0" : "hidden"}>
         <ScriptsView />
       </div>
+      <div class={activeTab() === "ai-agents" ? "h-full flex flex-col min-h-0" : "hidden"}>
+        <AiAgentsView />
+      </div>
       <div class={activeTab() === "secrets" ? "h-full flex flex-col min-h-0" : "hidden"}>
-        <SecretsView />
+        <SecretsView isActive={activeTab() === "secrets"} />
       </div>
       <div class={activeTab() === "database" ? "h-full flex flex-col min-h-0" : "hidden"}>
         <DatabaseView />

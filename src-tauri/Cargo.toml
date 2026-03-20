@@ -25,6 +25,7 @@ homedir = "0.3.6"
 metrics = "0.24.3"
 metrics-exporter-prometheus = "0.18.1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rig-core = { version = "0.33", default-features = true }
 rustls = { version = "0.23", features = ["aws_lc_rs"] }
 rhai = { version = "1.24.0", features = ["serde"] }
 scc = "3.5.4"

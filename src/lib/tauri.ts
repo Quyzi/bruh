@@ -265,3 +265,23 @@ export async function gitReset(): Promise<void> {
 export async function gitCheckoutRevision(hash: string): Promise<void> {
   return invoke("git_checkout_revision", { hash });
 }
+
+// AI Agents management
+export interface AiAgent {
+  name: string;
+  provider: string;
+  model: string;
+  max_tokens: number;
+}
+
+export async function listAiAgents(): Promise<AiAgent[]> {
+  return invoke<AiAgent[]>("list_ai_agents");
+}
+
+export async function setAiAgent(agent: AiAgent): Promise<void> {
+  return invoke("set_ai_agent", { agent });
+}
+
+export async function deleteAiAgent(name: string): Promise<void> {
+  return invoke("delete_ai_agent", { name });
+}

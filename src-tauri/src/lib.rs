@@ -8,6 +8,7 @@ use tracing_subscriber::{
     filter::LevelFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt, Registry,
 };
 
+pub mod ai_agents;
 pub mod auth;
 pub mod channels;
 pub mod chat_commands;
@@ -116,6 +117,9 @@ pub fn run(
             git::git_commit,
             git::git_reset,
             git::git_checkout_revision,
+            ai_agents::commands::list_ai_agents,
+            ai_agents::commands::set_ai_agent,
+            ai_agents::commands::delete_ai_agent,
             render_metrics,
         ])
         .run(tauri::generate_context!())

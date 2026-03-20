@@ -71,9 +71,7 @@ pub fn execute(
         tracing::warn!(node_id, groups = ?node_groups, "Delete Secret node has no key, skip");
         return Ok(Vec::new());
     }
-    secrets
-        .delete(key)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    secrets.delete(key).map_err(|e| anyhow::anyhow!("{}", e))?;
     tracing::info!(key = %key, groups = ?node_groups, "Secret deleted");
     Ok(Vec::new())
 }

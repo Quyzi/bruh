@@ -1,5 +1,8 @@
 import { LiteGraph } from "litegraph.js";
 
+// AI nodes
+import { register as registerAiPrompt } from "./ai/AiPromptNode";
+
 // Eventsub nodes
 import { register as registerChatMessage } from "./eventsub/chat_message";
 
@@ -40,6 +43,7 @@ export function configureLiteGraphTheme() {
 
 /** Allowed node categories in the Add Node menu. Only these are shown. */
 const ALLOWED_NODE_CATEGORIES = new Set([
+  "ai",
   "database",
   "twitch",
   "script",
@@ -69,6 +73,9 @@ function restrictNodeCategories() {
  * database, twitch, script, and secrets only.
  */
 export function registerAllNodes() {
+  // AI
+  registerAiPrompt();
+
   // Eventsub
   registerChatMessage();
 

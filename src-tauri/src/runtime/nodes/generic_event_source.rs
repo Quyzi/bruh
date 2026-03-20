@@ -14,10 +14,7 @@ pub struct GenericEventSource {
 /// Tries to parse a workflow node Value into GenericEventSource.
 /// Returns Some if the node has a non-empty `eventType` property; None otherwise.
 pub fn try_parse(node: &Value) -> Option<GenericEventSource> {
-    let event_type = node
-        .get("properties")?
-        .get("eventType")?
-        .as_str()?;
+    let event_type = node.get("properties")?.get("eventType")?.as_str()?;
     if event_type.is_empty() {
         return None;
     }

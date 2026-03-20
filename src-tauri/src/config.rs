@@ -1,7 +1,8 @@
 use std::{
     fs::{self, OpenOptions},
     io::{Read, Write},
-    path::{Path, PathBuf}, sync::LazyLock,
+    path::{Path, PathBuf},
+    sync::LazyLock,
 };
 
 use serde::{Deserialize, Serialize};
@@ -60,6 +61,9 @@ pub struct Config {
     /// Path to the channels JSON file.
     #[serde(default = "default_channels_path")]
     pub channels: PathBuf,
+    /// Path to the AI agents JSON file.
+    #[serde(default = "default_ai_agents_path")]
+    pub ai_agents: PathBuf,
 }
 
 fn default_workflow_path() -> PathBuf {
@@ -68,6 +72,10 @@ fn default_workflow_path() -> PathBuf {
 
 fn default_channels_path() -> PathBuf {
     "~/.bruh/channels.json".into()
+}
+
+fn default_ai_agents_path() -> PathBuf {
+    "~/.bruh/ai_agents.json".into()
 }
 
 impl Default for Config {
@@ -79,6 +87,7 @@ impl Default for Config {
             secrets: "~/.bruh/secrets.json".into(),
             workflow: default_workflow_path(),
             channels: default_channels_path(),
+            ai_agents: default_ai_agents_path(),
         }
     }
 }
@@ -159,13 +168,11 @@ impl Config {
             }
             let extensions_json = vscode_dir.join("extensions.json");
             if !extensions_json.exists() {
-                fs::write(
-                    &extensions_json,
-                    JASON_EXTENSIONS.to_string()
-                )
-                .map_err(|e| ConfigError::Write {
-                    path: extensions_json,
-                    source: e,
+                fs::write(&extensions_json, JASON_EXTENSIONS.to_string()).map_err(|e| {
+                    ConfigError::Write {
+                        path: extensions_json,
+                        source: e,
+                    }
                 })?;
             }
         }

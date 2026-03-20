@@ -1,4 +1,4 @@
-import { createSignal, onMount, For, Show } from "solid-js";
+import { createSignal, createEffect, onMount, For, Show } from "solid-js";
 import {
   listSecrets,
   getSecret,
@@ -13,7 +13,11 @@ interface SecretEntry {
   loading: boolean;
 }
 
-export function SecretsView() {
+interface SecretsViewProps {
+  isActive: boolean;
+}
+
+export function SecretsView(props: SecretsViewProps) {
   const [secrets, setSecrets] = createSignal<SecretEntry[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
@@ -53,6 +57,7 @@ export function SecretsView() {
   };
 
   onMount(loadSecrets);
+  createEffect(() => { if (props.isActive) loadSecrets(); });
 
   const toggleVisibility = async (name: string) => {
     const entry = secrets().find((s) => s.name === name);
