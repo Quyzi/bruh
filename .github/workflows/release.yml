@@ -1,18 +1,48 @@
-name: Build Tauri app
+name: 'publish'
 
 on:
   push:
-    branches: [ squirrel ]
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
+  create-branch:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+
+      - name: Setup SSH deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Create release branch
+        run: |
+          git remote set-url origin git@github.com:${{ github.repository }}.git
+          git checkout -b releases/${{ github.ref_name }}
+          git push origin releases/${{ github.ref_name }}
+
   build:
+    needs: create-branch
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
+        include:
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -21,17 +51,14 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: lts/*
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
-      - name: install Linux dependencies
+      - name: install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
@@ -40,16 +67,27 @@ jobs:
       - name: install frontend dependencies
         run: npm install
 
-      - name: build frontend
-        run: npm run build
-
-      - name: build tauri app
-        uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: bruh-v__VERSION__
-          releaseName: "Bruh v__VERSION__"
-          releaseBody: "body"
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Bruh ${{ github.ref_name }}'
+          releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
+          uploadPlainBinary: true
+          args: ${{ matrix.args }}
+
+  update-release:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: update release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING_BODY=$(gh release view ${{ github.ref_name }} --repo ${{ github.repository }} --json body -q .body)
+          gh release edit ${{ github.ref_name }} --repo ${{ github.repository }} --notes "$EXISTING_BODY
+
+          Release branch: [releases/${{ github.ref_name }}](https://github.com/${{ github.repository }}/tree/releases/${{ github.ref_name }})"
