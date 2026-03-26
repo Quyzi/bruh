@@ -4,9 +4,44 @@ use std::collections::HashMap;
 
 use anyhow;
 use async_duckdb::duckdb;
+use async_duckdb::duckdb::types::ValueRef;
 use serde_json::Value;
 
 use crate::Database;
+
+fn value_ref_to_json(v: ValueRef<'_>) -> Value {
+    match v {
+        ValueRef::Null => Value::Null,
+        ValueRef::Boolean(b) => Value::Bool(b),
+        ValueRef::TinyInt(n) => Value::Number(n.into()),
+        ValueRef::SmallInt(n) => Value::Number(n.into()),
+        ValueRef::Int(n) => Value::Number(n.into()),
+        ValueRef::BigInt(n) => Value::Number(n.into()),
+        ValueRef::HugeInt(n) => Value::String(n.to_string()),
+        ValueRef::UTinyInt(n) => Value::Number(n.into()),
+        ValueRef::USmallInt(n) => Value::Number(n.into()),
+        ValueRef::UInt(n) => Value::Number(n.into()),
+        ValueRef::UBigInt(n) => Value::Number(n.into()),
+        ValueRef::Float(f) => serde_json::Number::from_f64(f as f64)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
+        ValueRef::Double(f) => serde_json::Number::from_f64(f)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
+        ValueRef::Text(s) => Value::String(String::from_utf8_lossy(s).into_owned()),
+        ValueRef::Blob(b) => Value::String(b.iter().map(|byte| format!("{:02x}", byte)).collect()),
+        _ => Value::String(format!("{:?}", v)),
+    }
+}
+
+fn row_to_json(row: &duckdb::Row<'_>, col_names: &[String]) -> duckdb::Result<Value> {
+    let mut map = serde_json::Map::new();
+    for (i, name) in col_names.iter().enumerate() {
+        let val = value_ref_to_json(row.get_ref(i)?);
+        map.insert(name.clone(), val);
+    }
+    Ok(Value::Object(map))
+}
 
 fn value_to_query_param(value: Option<&Value>) -> Option<String> {
     let v = value?;
@@ -151,7 +186,7 @@ pub async fn execute(
         return Ok(Vec::new());
     }
     let db_clone = db.clone();
-    let result: Result<Vec<String>, _> = db_clone
+    let result: Result<Vec<Value>, _> = db_clone
         .conn(move |conn| {
             if is_write {
                 let _ = match param_count {
@@ -192,19 +227,21 @@ pub async fn execute(
                 return Ok(Vec::new());
             }
             let mut stmt = conn.prepare(&query_owned)?;
+            let col_names: Vec<String> =
+                stmt.column_names().into_iter().map(|s| s.to_owned()).collect();
             let mut vec = Vec::new();
             match param_count {
                 0 => {
-                    let iter = stmt.query_map([], |row| row.get::<usize, String>(0))?;
+                    let iter = stmt.query_map([], |row| row_to_json(row, &col_names))?;
                     for row in iter {
                         vec.push(row?);
                     }
                 }
                 1 => {
-                    let iter = stmt
-                        .query_map(duckdb::params![param_values[0].as_deref()], |row| {
-                            row.get::<usize, String>(0)
-                        })?;
+                    let iter = stmt.query_map(
+                        duckdb::params![param_values[0].as_deref()],
+                        |row| row_to_json(row, &col_names),
+                    )?;
                     for row in iter {
                         vec.push(row?);
                     }
@@ -212,7 +249,7 @@ pub async fn execute(
                 2 => {
                     let iter = stmt.query_map(
                         duckdb::params![param_values[0].as_deref(), param_values[1].as_deref(),],
-                        |row| row.get::<usize, String>(0),
+                        |row| row_to_json(row, &col_names),
                     )?;
                     for row in iter {
                         vec.push(row?);
@@ -225,7 +262,7 @@ pub async fn execute(
                             param_values[1].as_deref(),
                             param_values[2].as_deref(),
                         ],
-                        |row| row.get::<usize, String>(0),
+                        |row| row_to_json(row, &col_names),
                     )?;
                     for row in iter {
                         vec.push(row?);
@@ -239,7 +276,7 @@ pub async fn execute(
                             param_values[2].as_deref(),
                             param_values[3].as_deref(),
                         ],
-                        |row| row.get::<usize, String>(0),
+                        |row| row_to_json(row, &col_names),
                     )?;
                     for row in iter {
                         vec.push(row?);
@@ -254,7 +291,7 @@ pub async fn execute(
                             param_values[3].as_deref(),
                             param_values[4].as_deref(),
                         ],
-                        |row| row.get::<usize, String>(0),
+                        |row| row_to_json(row, &col_names),
                     )?;
                     for row in iter {
                         vec.push(row?);
@@ -268,7 +305,7 @@ pub async fn execute(
     let output = if list.is_empty() {
         Value::Array(vec![Value::Null])
     } else {
-        Value::Array(list.into_iter().map(Value::String).collect())
+        Value::Array(list)
     };
     Ok(vec![(0, output)])
 }
