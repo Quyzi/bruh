@@ -774,6 +774,10 @@ async fn execute_node(
         "database/query" => {
             super::nodes::execute_database_query(node_value, inputs, database, node_groups).await
         }
+        "database/query_dynamic" => {
+            super::nodes::execute_database_query_dynamic(node_value, inputs, database, node_groups)
+                .await
+        }
         "secrets/get" => super::nodes::execute_get_secret(node_value, secrets, node_groups),
         "secrets/set" => super::nodes::execute_set_secret(node_value, inputs, secrets, node_groups),
         "secrets/list" => super::nodes::execute_list_secrets(node_value, secrets, node_groups),

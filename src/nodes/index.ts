@@ -16,6 +16,7 @@ import { register as registerRhaiScript } from "./script/RhaiScriptNode";
 
 // Database nodes
 import { register as registerDatabaseQuery } from "./database/DatabaseQueryNode";
+import { register as registerDatabaseQueryDynamic } from "./database/DatabaseQueryDynamicNode";
 
 // Secret nodes
 import { register as registerGetSecret } from "./secrets/GetSecretNode";
@@ -91,6 +92,7 @@ export function registerAllNodes() {
 
   // Database
   registerDatabaseQuery();
+  registerDatabaseQueryDynamic();
 
   // Secrets
   registerGetSecret();

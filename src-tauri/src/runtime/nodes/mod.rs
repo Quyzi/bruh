@@ -31,6 +31,7 @@ pub use twitch_send_chat::{try_parse as try_parse_twitch_send_chat, TwitchSendCh
 /// Re-export execute functions for use by the executor.
 pub(crate) use ai_prompt::execute as execute_ai_prompt;
 pub(crate) use database_query::execute as execute_database_query;
+pub(crate) use database_query::execute_dynamic as execute_database_query_dynamic;
 pub(crate) use delete_secret::execute as execute_delete_secret;
 pub(crate) use get_secret::execute as execute_get_secret;
 pub(crate) use list_secrets::execute as execute_list_secrets;
