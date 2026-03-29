@@ -47,7 +47,11 @@ impl Pipeline {
             }
             matched.push(path);
         }
-        matched
+        if event.subscription_type == "channel.chat.message" {
+            apply_prefix_specificity(matched, &event.payload, nodes)
+        } else {
+            matched
+        }
     }
 }
 
@@ -101,7 +105,17 @@ fn chat_message_matches_source(payload: &Value, source_node: &Value) -> bool {
     if node_type != "twitch/chat_message_prefix" {
         return true;
     }
-    let prefix = source_node
+    let prefix = get_node_prefix(source_node).unwrap_or("");
+    let text = match chat_message_text(payload) {
+        Some(t) => t,
+        None => return false,
+    };
+    text.starts_with(prefix)
+}
+
+/// Extracts the prefix string from a twitch/chat_message_prefix source node.
+fn get_node_prefix<'a>(source_node: &'a Value) -> Option<&'a str> {
+    source_node
         .get("properties")
         .and_then(|p| p.get("prefix").and_then(|v| v.as_str()))
         .or_else(|| {
@@ -111,12 +125,51 @@ fn chat_message_matches_source(payload: &Value, source_node: &Value) -> bool {
                 .and_then(|a| a.first())
                 .and_then(|v| v.as_str())
         })
-        .unwrap_or("");
-    let text = match chat_message_text(payload) {
-        Some(t) => t,
-        None => return false,
-    };
-    text.starts_with(prefix)
+}
+
+/// For channel.chat.message events, filters matched paths so only the most specific
+/// prefix node(s) fire. If two nodes have the same (longest) prefix, both fire.
+/// Non-prefix nodes are always included unchanged.
+fn apply_prefix_specificity(
+    matched: Vec<super::parse::SourcePath>,
+    payload: &Value,
+    nodes: &[Value],
+) -> Vec<super::parse::SourcePath> {
+    let mut prefix_paths: Vec<(super::parse::SourcePath, usize)> = Vec::new();
+    let mut other_paths: Vec<super::parse::SourcePath> = Vec::new();
+
+    for path in matched {
+        let source_node = nodes
+            .iter()
+            .find(|n| n.get("id").and_then(|v| v.as_i64()) == Some(path.source_id as i64));
+        let source_node = match source_node {
+            Some(n) => n,
+            None => {
+                other_paths.push(path);
+                continue;
+            }
+        };
+        let node_type = source_node
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if node_type != "twitch/chat_message_prefix" {
+            other_paths.push(path);
+            continue;
+        }
+        let prefix_len = get_node_prefix(source_node).map(|p| p.len()).unwrap_or(0);
+        prefix_paths.push((path, prefix_len));
+    }
+
+    if let Some(max_len) = prefix_paths.iter().map(|(_, len)| *len).max() {
+        for (path, len) in prefix_paths {
+            if len == max_len {
+                other_paths.push(path);
+            }
+        }
+    }
+
+    other_paths
 }
 
 /// Returns the inner channel.chat.message event object from the serialized Event payload.
