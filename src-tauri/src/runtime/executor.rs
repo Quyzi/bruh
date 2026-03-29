@@ -757,6 +757,7 @@ async fn execute_node(
     };
     tracing::trace!(node_type, node = %label, groups = ?node_groups, "execute_node");
     match node_type {
+        "primitives/Constant" => super::nodes::execute_constant(node_value),
         "script/rhai" => super::nodes::execute_script_rhai(
             node_value,
             inputs,

@@ -29,6 +29,9 @@ import { register as registerDeleteSecret } from "./secrets/DeleteSecretNode";
 // Utilities nodes
 import { register as registerTimer } from "./utilities/TimerNode";
 
+// Primitives nodes
+import { register as registerConstant } from "./primitives/ConstantNode";
+
 /**
  * Configure LiteGraph styling to match our dark theme
  */
@@ -52,6 +55,7 @@ const ALLOWED_NODE_CATEGORIES = new Set([
   "script",
   "secrets",
   "utilities",
+  "primitives",
 ]);
 
 /**
@@ -106,6 +110,9 @@ export function registerAllNodes() {
 
   // Utilities
   registerTimer();
+
+  // Primitives
+  registerConstant();
 
   restrictNodeCategories();
 }

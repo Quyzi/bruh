@@ -1,5 +1,6 @@
 //! Typed workflow node definitions: one struct per node type, parse from JSON.
 
+mod constant;
 mod ai_prompt;
 mod database_query;
 mod delete_secret;
@@ -15,6 +16,7 @@ mod twitch_chat_message_prefix;
 mod twitch_send_chat;
 mod twitch_send_chat_formatted;
 
+pub use constant::{try_parse as try_parse_constant, Constant};
 pub use delete_secret::{try_parse as try_parse_delete_secret, DeleteSecret};
 pub use generic_event_source::{try_parse as try_parse_generic_event_source, GenericEventSource};
 pub use get_secret::{try_parse as try_parse_get_secret, GetSecret};
@@ -46,6 +48,7 @@ pub use twitch_send_chat_formatted::try_parse as try_parse_twitch_send_chat_form
 pub use twitch_broadcast_chat_formatted::try_parse as try_parse_twitch_broadcast_chat_formatted;
 
 /// Re-export execute functions for use by the executor.
+pub(crate) use constant::execute as execute_constant;
 pub(crate) use ai_prompt::execute as execute_ai_prompt;
 pub(crate) use database_query::execute as execute_database_query;
 pub(crate) use database_query::execute_dynamic as execute_database_query_dynamic;
@@ -98,6 +101,7 @@ pub fn role_for_type(type_str: &str) -> NodeRole {
 /// A typed workflow node: one variant per known node type.
 #[derive(Debug, Clone)]
 pub enum TypedNode {
+    Constant(Constant),
     TwitchChatMessagePrefix(TwitchChatMessagePrefix),
     GenericEventSource(GenericEventSource),
     TimerInterval(TimerInterval),
@@ -116,6 +120,7 @@ impl TypedNode {
     /// Role of this node.
     pub fn role(&self) -> NodeRole {
         match self {
+            TypedNode::Constant(_) => NodeRole::Transformer,
             TypedNode::TwitchChatMessagePrefix(_) => NodeRole::EventSource,
             TypedNode::GenericEventSource(_) => NodeRole::EventSource,
             TypedNode::TimerInterval(_) => NodeRole::EventSource,
@@ -134,6 +139,7 @@ impl TypedNode {
     /// Node id (all node structs have id).
     pub fn id(&self) -> i32 {
         match self {
+            TypedNode::Constant(n) => n.id,
             TypedNode::TwitchChatMessagePrefix(n) => n.id,
             TypedNode::GenericEventSource(n) => n.id,
             TypedNode::TimerInterval(n) => n.id,
@@ -195,6 +201,9 @@ pub(crate) fn split_message(message: &str, preferred: usize, hard_limit: usize) 
 /// Tries to parse a raw node Value into a TypedNode.
 /// Returns None if the node type is unknown or parsing fails.
 pub fn try_parse_node(node: &Value) -> Option<TypedNode> {
+    if let Some(n) = try_parse_constant(node) {
+        return Some(TypedNode::Constant(n));
+    }
     if let Some(n) = try_parse_twitch_chat_message_prefix(node) {
         return Some(TypedNode::TwitchChatMessagePrefix(n));
     }
