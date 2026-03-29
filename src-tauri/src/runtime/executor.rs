@@ -767,12 +767,29 @@ async fn execute_node(
         "twitch/send_chat" => {
             super::nodes::execute_twitch_send_chat(node_value, inputs, authenticator).await
         }
+        "twitch/send_chat_formatted" => {
+            super::nodes::execute_twitch_send_chat_formatted(node_value, inputs, authenticator)
+                .await
+        }
         "twitch/broadcast_chat" => {
             super::nodes::execute_twitch_broadcast_chat(node_value, inputs, config, authenticator)
                 .await
         }
+        "twitch/broadcast_chat_formatted" => {
+            super::nodes::execute_twitch_broadcast_chat_formatted(
+                node_value,
+                inputs,
+                config,
+                authenticator,
+            )
+            .await
+        }
         "database/query" => {
             super::nodes::execute_database_query(node_value, inputs, database, node_groups).await
+        }
+        "database/query_dynamic" => {
+            super::nodes::execute_database_query_dynamic(node_value, inputs, database, node_groups)
+                .await
         }
         "secrets/get" => super::nodes::execute_get_secret(node_value, secrets, node_groups),
         "secrets/set" => super::nodes::execute_set_secret(node_value, inputs, secrets, node_groups),

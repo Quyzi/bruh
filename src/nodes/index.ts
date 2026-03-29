@@ -9,6 +9,8 @@ import { register as registerChatMessage } from "./eventsub/chat_message";
 // Twitch nodes
 import { register as registerSendChat } from "./twitch/SendChatNode";
 import { register as registerBroadcastChat } from "./twitch/BroadcastChatNode";
+import { register as registerSendChatFormatted } from "./twitch/SendChatFormattedNode";
+import { register as registerBroadcastChatFormatted } from "./twitch/BroadcastChatFormattedNode";
 import { registerAllTwitchEvents } from "./twitch/events";
 
 // Script nodes
@@ -16,6 +18,7 @@ import { register as registerRhaiScript } from "./script/RhaiScriptNode";
 
 // Database nodes
 import { register as registerDatabaseQuery } from "./database/DatabaseQueryNode";
+import { register as registerDatabaseQueryDynamic } from "./database/DatabaseQueryDynamicNode";
 
 // Secret nodes
 import { register as registerGetSecret } from "./secrets/GetSecretNode";
@@ -82,6 +85,8 @@ export function registerAllNodes() {
   // Twitch Actions
   registerSendChat();
   registerBroadcastChat();
+  registerSendChatFormatted();
+  registerBroadcastChatFormatted();
 
   // Twitch EventSub events (Channel Follow, Subscribe, Gift, etc.)
   registerAllTwitchEvents();
@@ -91,6 +96,7 @@ export function registerAllNodes() {
 
   // Database
   registerDatabaseQuery();
+  registerDatabaseQueryDynamic();
 
   // Secrets
   registerGetSecret();

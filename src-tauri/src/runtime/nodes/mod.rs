@@ -10,8 +10,10 @@ mod script_rhai;
 mod set_secret;
 pub mod timer_interval;
 mod twitch_broadcast_chat;
+mod twitch_broadcast_chat_formatted;
 mod twitch_chat_message_prefix;
 mod twitch_send_chat;
+mod twitch_send_chat_formatted;
 
 pub use delete_secret::{try_parse as try_parse_delete_secret, DeleteSecret};
 pub use generic_event_source::{try_parse as try_parse_generic_event_source, GenericEventSource};
@@ -28,16 +30,34 @@ pub use twitch_chat_message_prefix::{
 };
 pub use twitch_send_chat::{try_parse as try_parse_twitch_send_chat, TwitchSendChat};
 
+/// Marker struct for twitch/send_chat_formatted nodes.
+#[derive(Debug, Clone)]
+pub struct TwitchSendChatFormatted {
+    pub id: i32,
+}
+
+/// Marker struct for twitch/broadcast_chat_formatted nodes.
+#[derive(Debug, Clone)]
+pub struct TwitchBroadcastChatFormatted {
+    pub id: i32,
+}
+
+pub use twitch_send_chat_formatted::try_parse as try_parse_twitch_send_chat_formatted;
+pub use twitch_broadcast_chat_formatted::try_parse as try_parse_twitch_broadcast_chat_formatted;
+
 /// Re-export execute functions for use by the executor.
 pub(crate) use ai_prompt::execute as execute_ai_prompt;
 pub(crate) use database_query::execute as execute_database_query;
+pub(crate) use database_query::execute_dynamic as execute_database_query_dynamic;
 pub(crate) use delete_secret::execute as execute_delete_secret;
 pub(crate) use get_secret::execute as execute_get_secret;
 pub(crate) use list_secrets::execute as execute_list_secrets;
 pub(crate) use script_rhai::execute as execute_script_rhai;
 pub(crate) use set_secret::execute as execute_set_secret;
 pub(crate) use twitch_broadcast_chat::execute as execute_twitch_broadcast_chat;
+pub(crate) use twitch_broadcast_chat_formatted::execute as execute_twitch_broadcast_chat_formatted;
 pub(crate) use twitch_send_chat::execute as execute_twitch_send_chat;
+pub(crate) use twitch_send_chat_formatted::execute as execute_twitch_send_chat_formatted;
 
 use serde_json::Value;
 
@@ -82,7 +102,9 @@ pub enum TypedNode {
     GenericEventSource(GenericEventSource),
     TimerInterval(TimerInterval),
     TwitchBroadcastChat(TwitchBroadcastChat),
+    TwitchBroadcastChatFormatted(TwitchBroadcastChatFormatted),
     TwitchSendChat(TwitchSendChat),
+    TwitchSendChatFormatted(TwitchSendChatFormatted),
     ScriptRhai(ScriptRhai),
     GetSecret(GetSecret),
     SetSecret(SetSecret),
@@ -98,7 +120,9 @@ impl TypedNode {
             TypedNode::GenericEventSource(_) => NodeRole::EventSource,
             TypedNode::TimerInterval(_) => NodeRole::EventSource,
             TypedNode::TwitchBroadcastChat(_) => NodeRole::ResultAction,
+            TypedNode::TwitchBroadcastChatFormatted(_) => NodeRole::ResultAction,
             TypedNode::TwitchSendChat(_) => NodeRole::ResultAction,
+            TypedNode::TwitchSendChatFormatted(_) => NodeRole::ResultAction,
             TypedNode::ScriptRhai(_) => NodeRole::Transformer,
             TypedNode::GetSecret(_) => NodeRole::Transformer,
             TypedNode::SetSecret(_) => NodeRole::ResultAction,
@@ -114,7 +138,9 @@ impl TypedNode {
             TypedNode::GenericEventSource(n) => n.id,
             TypedNode::TimerInterval(n) => n.id,
             TypedNode::TwitchBroadcastChat(n) => n.id,
+            TypedNode::TwitchBroadcastChatFormatted(n) => n.id,
             TypedNode::TwitchSendChat(n) => n.id,
+            TypedNode::TwitchSendChatFormatted(n) => n.id,
             TypedNode::ScriptRhai(n) => n.id,
             TypedNode::GetSecret(n) => n.id,
             TypedNode::SetSecret(n) => n.id,
@@ -175,8 +201,14 @@ pub fn try_parse_node(node: &Value) -> Option<TypedNode> {
     if let Some(n) = try_parse_twitch_send_chat(node) {
         return Some(TypedNode::TwitchSendChat(n));
     }
+    if let Some(n) = try_parse_twitch_send_chat_formatted(node) {
+        return Some(TypedNode::TwitchSendChatFormatted(n));
+    }
     if let Some(n) = try_parse_twitch_broadcast_chat(node) {
         return Some(TypedNode::TwitchBroadcastChat(n));
+    }
+    if let Some(n) = try_parse_twitch_broadcast_chat_formatted(node) {
+        return Some(TypedNode::TwitchBroadcastChatFormatted(n));
     }
     if let Some(n) = try_parse_script_rhai(node) {
         return Some(TypedNode::ScriptRhai(n));

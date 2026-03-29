@@ -4,9 +4,57 @@ use std::collections::HashMap;
 
 use anyhow;
 use async_duckdb::duckdb;
+use async_duckdb::duckdb::types::ValueRef;
 use serde_json::Value;
 
 use crate::Database;
+
+fn value_ref_to_json(v: ValueRef<'_>) -> Value {
+    match v {
+        ValueRef::Null => Value::Null,
+        ValueRef::Boolean(b) => Value::Bool(b),
+        ValueRef::TinyInt(n) => Value::Number(n.into()),
+        ValueRef::SmallInt(n) => Value::Number(n.into()),
+        ValueRef::Int(n) => Value::Number(n.into()),
+        ValueRef::BigInt(n) => Value::Number(n.into()),
+        ValueRef::HugeInt(n) => Value::String(n.to_string()),
+        ValueRef::UTinyInt(n) => Value::Number(n.into()),
+        ValueRef::USmallInt(n) => Value::Number(n.into()),
+        ValueRef::UInt(n) => Value::Number(n.into()),
+        ValueRef::UBigInt(n) => Value::Number(n.into()),
+        ValueRef::Float(f) => serde_json::Number::from_f64(f as f64)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
+        ValueRef::Double(f) => serde_json::Number::from_f64(f)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
+        ValueRef::Text(s) => Value::String(String::from_utf8_lossy(s).into_owned()),
+        ValueRef::Blob(b) => Value::String(b.iter().map(|byte| format!("{:02x}", byte)).collect()),
+        _ => Value::String(format!("{:?}", v)),
+    }
+}
+
+fn row_to_json(row: &duckdb::Row<'_>, col_names: &[String]) -> duckdb::Result<Value> {
+    let mut map = serde_json::Map::new();
+    for (i, name) in col_names.iter().enumerate() {
+        let val = value_ref_to_json(row.get_ref(i)?);
+        map.insert(name.clone(), val);
+    }
+    Ok(Value::Object(map))
+}
+
+/// Execute a prepared statement's rows and collect them as JSON objects.
+/// `column_names()` requires the statement to be executed first; `Rows` is
+/// returned by `Statement::query()` which calls `execute()` internally, so
+/// it is safe to call `rows.as_ref().unwrap().column_names()` here.
+fn collect_rows(rows: duckdb::Rows<'_>) -> duckdb::Result<Vec<Value>> {
+    let col_names: Vec<String> = rows.as_ref().unwrap().column_names();
+    let mut vec = Vec::new();
+    for row in rows.mapped(|row| row_to_json(row, &col_names)) {
+        vec.push(row?);
+    }
+    Ok(vec)
+}
 
 fn value_to_query_param(value: Option<&Value>) -> Option<String> {
     let v = value?;
@@ -71,6 +119,54 @@ fn normalize_query_placeholders(query: &str) -> String {
         }
     }
     out
+}
+
+/// Runs a database/query_dynamic node: takes the SQL query from input slot 0, executes it with no
+/// parameters, and returns all rows as a JSON array of objects keyed by column name.
+pub async fn execute_dynamic(
+    node_value: &Value,
+    inputs: HashMap<i32, Value>,
+    database: Option<&Database>,
+    node_groups: Option<&str>,
+) -> Result<Vec<(i32, Value)>, anyhow::Error> {
+    let db = match database {
+        Some(d) => d,
+        None => {
+            let node_id = node_value.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+            tracing::debug!(node = %format!("id:{}", node_id), groups = ?node_groups, "DB Query (Dynamic) node: no database, skip");
+            return Ok(Vec::new());
+        }
+    };
+    let query = match inputs.get(&0).and_then(|v| v.as_str()) {
+        Some(q) => q.to_owned(),
+        None => {
+            let node_id = node_value.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+            tracing::debug!(node = %format!("id:{}", node_id), groups = ?node_groups, "DB Query (Dynamic) node: no query in input slot 0, skip");
+            return Ok(Vec::new());
+        }
+    };
+    if query.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let is_write = query_trim_is_insert_update_delete(query.trim());
+    let db_clone = db.clone();
+    let result: Result<Vec<Value>, _> = db_clone
+        .conn(move |conn| {
+            if is_write {
+                conn.execute(&query, [])?;
+                return Ok(Vec::new());
+            }
+            let mut stmt = conn.prepare(&query)?;
+            collect_rows(stmt.query([])?)
+        })
+        .await;
+    let list = result.map_err(|e| anyhow::anyhow!("DB query (dynamic) failed: {}", e))?;
+    let output = if list.is_empty() {
+        Value::Array(vec![Value::Null])
+    } else {
+        Value::Array(list)
+    };
+    Ok(vec![(0, output)])
 }
 
 /// Runs a database/query node: executes the SQL with input slots bound as DuckDB positional parameters.
@@ -151,7 +247,7 @@ pub async fn execute(
         return Ok(Vec::new());
     }
     let db_clone = db.clone();
-    let result: Result<Vec<String>, _> = db_clone
+    let result: Result<Vec<Value>, _> = db_clone
         .conn(move |conn| {
             if is_write {
                 let _ = match param_count {
@@ -192,75 +288,32 @@ pub async fn execute(
                 return Ok(Vec::new());
             }
             let mut stmt = conn.prepare(&query_owned)?;
-            let mut vec = Vec::new();
-            match param_count {
-                0 => {
-                    let iter = stmt.query_map([], |row| row.get::<usize, String>(0))?;
-                    for row in iter {
-                        vec.push(row?);
-                    }
-                }
-                1 => {
-                    let iter = stmt
-                        .query_map(duckdb::params![param_values[0].as_deref()], |row| {
-                            row.get::<usize, String>(0)
-                        })?;
-                    for row in iter {
-                        vec.push(row?);
-                    }
-                }
-                2 => {
-                    let iter = stmt.query_map(
-                        duckdb::params![param_values[0].as_deref(), param_values[1].as_deref(),],
-                        |row| row.get::<usize, String>(0),
-                    )?;
-                    for row in iter {
-                        vec.push(row?);
-                    }
-                }
-                3 => {
-                    let iter = stmt.query_map(
-                        duckdb::params![
-                            param_values[0].as_deref(),
-                            param_values[1].as_deref(),
-                            param_values[2].as_deref(),
-                        ],
-                        |row| row.get::<usize, String>(0),
-                    )?;
-                    for row in iter {
-                        vec.push(row?);
-                    }
-                }
-                4 => {
-                    let iter = stmt.query_map(
-                        duckdb::params![
-                            param_values[0].as_deref(),
-                            param_values[1].as_deref(),
-                            param_values[2].as_deref(),
-                            param_values[3].as_deref(),
-                        ],
-                        |row| row.get::<usize, String>(0),
-                    )?;
-                    for row in iter {
-                        vec.push(row?);
-                    }
-                }
-                _ => {
-                    let iter = stmt.query_map(
-                        duckdb::params![
-                            param_values[0].as_deref(),
-                            param_values[1].as_deref(),
-                            param_values[2].as_deref(),
-                            param_values[3].as_deref(),
-                            param_values[4].as_deref(),
-                        ],
-                        |row| row.get::<usize, String>(0),
-                    )?;
-                    for row in iter {
-                        vec.push(row?);
-                    }
-                }
-            }
+            let vec = match param_count {
+                0 => collect_rows(stmt.query([])?)?,
+                1 => collect_rows(stmt.query(duckdb::params![param_values[0].as_deref()])?)?,
+                2 => collect_rows(stmt.query(duckdb::params![
+                    param_values[0].as_deref(),
+                    param_values[1].as_deref(),
+                ])?)?,
+                3 => collect_rows(stmt.query(duckdb::params![
+                    param_values[0].as_deref(),
+                    param_values[1].as_deref(),
+                    param_values[2].as_deref(),
+                ])?)?,
+                4 => collect_rows(stmt.query(duckdb::params![
+                    param_values[0].as_deref(),
+                    param_values[1].as_deref(),
+                    param_values[2].as_deref(),
+                    param_values[3].as_deref(),
+                ])?)?,
+                _ => collect_rows(stmt.query(duckdb::params![
+                    param_values[0].as_deref(),
+                    param_values[1].as_deref(),
+                    param_values[2].as_deref(),
+                    param_values[3].as_deref(),
+                    param_values[4].as_deref(),
+                ])?)?,
+            };
             Ok(vec)
         })
         .await;
@@ -268,7 +321,7 @@ pub async fn execute(
     let output = if list.is_empty() {
         Value::Array(vec![Value::Null])
     } else {
-        Value::Array(list.into_iter().map(Value::String).collect())
+        Value::Array(list)
     };
     Ok(vec![(0, output)])
 }
