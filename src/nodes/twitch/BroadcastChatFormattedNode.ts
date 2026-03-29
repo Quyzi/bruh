@@ -4,10 +4,10 @@ const LINE_H = 14;
 const PADDING = 8;
 const MIN_LINES = 3;
 
-function addQueryWidget(node: any, initialValue: string) {
+function addTemplateWidget(node: any, initialValue: string) {
   const widget: any = {
     type: "custom_textarea",
-    name: "Query",
+    name: "Template",
     value: initialValue,
     options: {},
     _activeTextarea: null as HTMLTextAreaElement | null,
@@ -18,7 +18,6 @@ function addQueryWidget(node: any, initialValue: string) {
     },
 
     draw(ctx: CanvasRenderingContext2D, node: any, widget_width: number, y: number, _H: number) {
-      // Fill all available vertical space when the node has been manually resized.
       const minH = widget.computeSize(widget_width)[1];
       const height = Math.max(minH, node.size[1] - y - 4);
       const margin = 6;
@@ -80,8 +79,6 @@ function addQueryWidget(node: any, initialValue: string) {
       const rect = canvas.getBoundingClientRect();
       const ds = lgCanvas.ds;
 
-      // widget.last_y is the widget's Y within the node (node-relative), set by litegraph during draw.
-      // Graph→screen: (graph_coord + ds.offset) * ds.scale + rect offset
       const graphX = node.pos[0] + 6;
       const graphY = node.pos[1] + (widget.last_y ?? 0);
       const screenX = (graphX + ds.offset[0]) * ds.scale + rect.left;
@@ -117,8 +114,6 @@ function addQueryWidget(node: any, initialValue: string) {
       `;
       document.body.appendChild(ta);
       widget._activeTextarea = ta;
-      // Defer focus so litegraph's synchronous canvas.focus() call (which fires before this
-      // callback) doesn't immediately steal focus back from the textarea.
       setTimeout(() => {
         ta.focus();
         ta.setSelectionRange(ta.value.length, ta.value.length);
@@ -127,7 +122,7 @@ function addQueryWidget(node: any, initialValue: string) {
 
       const commit = () => {
         widget.value = ta.value;
-        node.properties.query = ta.value;
+        node.properties.template = ta.value;
         if (node.graph) node.graph._version++;
         cleanup();
       };
@@ -155,21 +150,20 @@ function addQueryWidget(node: any, initialValue: string) {
   return widget;
 }
 
-export function DatabaseQueryNode(this: any) {
-  this.addInput("input1", "string");
-  this.addInput("input2", "string");
-  this.addInput("input3", "string");
-  this.addInput("input4", "string");
-  this.addInput("input5", "string");
-  this.addOutput("results", "string");
-  this.properties = { query: "SELECT * FROM events LIMIT 10" };
-  addQueryWidget(this, this.properties.query);
+export function BroadcastChatFormattedNode(this: any) {
+  this.addInput("param1 (?1)", "string");
+  this.addInput("param2 (?2)", "string");
+  this.addInput("param3 (?3)", "string");
+  this.addInput("param4 (?4)", "string");
+  this.addInput("param5 (?5)", "string");
+  this.properties = { template: "Hi ?1, thanks for the follow!" };
+  addTemplateWidget(this, this.properties.template);
   this.serialize_widgets = true;
   // 5 slots × NODE_SLOT_HEIGHT(20) + widget min height + widget margin(12) + node margin(6)
   this.size = [300, 5 * 20 + MIN_LINES * LINE_H + PADDING * 2 + 4 + 18];
 }
 
-DatabaseQueryNode.prototype.onRemoved = function (this: any) {
+BroadcastChatFormattedNode.prototype.onRemoved = function (this: any) {
   const w = this.widgets?.[0];
   if (w?._activeTextarea?.parentNode) {
     w._activeTextarea.parentNode.removeChild(w._activeTextarea);
@@ -177,15 +171,9 @@ DatabaseQueryNode.prototype.onRemoved = function (this: any) {
   }
 };
 
-DatabaseQueryNode.prototype.onAction = function (this: any) {
-  console.log("Execute query:", this.properties.query);
-  this.setOutputData(1, []);
-  this.triggerSlot(0);
-};
-
-DatabaseQueryNode.title = "DB Query";
-DatabaseQueryNode.desc = "Execute a database query";
+BroadcastChatFormattedNode.title = "Broadcast Chat Formatted";
+BroadcastChatFormattedNode.desc = "Send a formatted message to all connected channels. Use ?1-?5 as placeholders.";
 
 export function register() {
-  LiteGraph.registerNodeType("database/query", DatabaseQueryNode as any);
+  LiteGraph.registerNodeType("twitch/broadcast_chat_formatted", BroadcastChatFormattedNode as any);
 }

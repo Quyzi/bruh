@@ -9,6 +9,8 @@ import { register as registerChatMessage } from "./eventsub/chat_message";
 // Twitch nodes
 import { register as registerSendChat } from "./twitch/SendChatNode";
 import { register as registerBroadcastChat } from "./twitch/BroadcastChatNode";
+import { register as registerSendChatFormatted } from "./twitch/SendChatFormattedNode";
+import { register as registerBroadcastChatFormatted } from "./twitch/BroadcastChatFormattedNode";
 import { registerAllTwitchEvents } from "./twitch/events";
 
 // Script nodes
@@ -83,6 +85,8 @@ export function registerAllNodes() {
   // Twitch Actions
   registerSendChat();
   registerBroadcastChat();
+  registerSendChatFormatted();
+  registerBroadcastChatFormatted();
 
   // Twitch EventSub events (Channel Follow, Subscribe, Gift, etc.)
   registerAllTwitchEvents();
