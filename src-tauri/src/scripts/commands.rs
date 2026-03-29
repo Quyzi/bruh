@@ -206,6 +206,27 @@ pub fn execute_script_impl(
             message: format!("Invalid script input: {}", error),
         })?;
     let mut engine = Engine::new();
+    engine.register_fn("timestamp_secs", || -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0)
+    });
+    engine.register_fn("timestamp_millis", || -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0)
+    });
+    engine.register_fn("timestamp_micros", || -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_micros() as i64)
+            .unwrap_or(0)
+    });
+    engine.register_fn("sanitize_for_sql", |s: &str| -> String {
+        s.replace('\'', "''")
+    });
     let script_name: std::sync::Arc<String> = std::sync::Arc::from(name.to_string());
     let node_label: std::sync::Arc<str> =
         std::sync::Arc::from(node_title.unwrap_or("").to_string());
