@@ -21,6 +21,15 @@ pub struct AiAgent {
     pub model: String,
     #[serde(default = "default_max_tokens")]
     pub max_tokens: u64,
+    /// Sampling temperature (0.0–2.0). None means use the provider's default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    /// System prompt / preamble sent before every user message.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preamble: Option<String>,
+    /// Base URL override for local providers (ollama, llamafile).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
 }
 
 /// Derives the secrets key for an agent: "ai/{provider}/{name_slug}"

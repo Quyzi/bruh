@@ -81,6 +81,9 @@ pub async fn execute(
         &agent.model,
         &api_key,
         agent.max_tokens,
+        agent.temperature,
+        agent.preamble.as_deref(),
+        agent.base_url.as_deref(),
         &prompt,
     )
     .await?;
@@ -110,100 +113,110 @@ async fn call_provider(
     model: &str,
     api_key: &str,
     max_tokens: u64,
+    temperature: Option<f64>,
+    preamble: Option<&str>,
+    base_url: Option<&str>,
     prompt: &str,
 ) -> anyhow::Result<String> {
     use rig::client::CompletionClient;
     use rig::completion::Prompt;
+
+    macro_rules! build_agent {
+        ($client:expr) => {{
+            let mut b = $client.agent(model).max_tokens(max_tokens);
+            if let Some(t) = temperature {
+                b = b.temperature(t);
+            }
+            if let Some(p) = preamble {
+                if !p.is_empty() {
+                    b = b.preamble(p);
+                }
+            }
+            b.build()
+        }};
+    }
+
     match provider {
         "openai" => {
             let client = rig::providers::openai::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create openai client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "anthropic" => {
             let client = rig::providers::anthropic::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create anthropic client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "groq" => {
             let client = rig::providers::groq::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create groq client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "mistral" => {
             let client = rig::providers::mistral::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create mistral client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "cohere" => {
             let client = rig::providers::cohere::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create cohere client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "gemini" => {
             let client = rig::providers::gemini::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create gemini client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "deepseek" => {
             let client = rig::providers::deepseek::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create deepseek client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "openrouter" => {
             let client = rig::providers::openrouter::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create openrouter client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "perplexity" => {
             let client = rig::providers::perplexity::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create perplexity client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "together" => {
             let client = rig::providers::together::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create together client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "xai" => {
             let client = rig::providers::xai::Client::new(api_key)
                 .map_err(|e| anyhow::anyhow!("Failed to create xai client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "ollama" => {
-            let client = rig::providers::ollama::Client::new(rig::client::Nothing)
+            let url = base_url.unwrap_or("http://localhost:11434");
+            let client = rig::providers::ollama::Client::builder()
+                .api_key(rig::client::Nothing)
+                .base_url(url)
+                .build()
                 .map_err(|e| anyhow::anyhow!("Failed to create ollama client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         "llamafile" => {
-            let client = rig::providers::llamafile::Client::new(rig::client::Nothing)
-                .map_err(|e| anyhow::anyhow!("Failed to create llamafile client: {}", e))?;
-            let agent = client.agent(model).max_tokens(max_tokens).build();
-            let response = agent.prompt(prompt).await?;
+            let url = base_url.unwrap_or("http://localhost:8080");
+            let client = rig::providers::llamafile::Client::from_url(url);
+            let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
         _ => Err(anyhow::anyhow!("Unsupported AI provider: {}", provider)),

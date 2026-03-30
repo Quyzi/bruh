@@ -32,6 +32,9 @@ export function AiAgentsView() {
   const [formProvider, setFormProvider] = createSignal("openai");
   const [formModel, setFormModel] = createSignal("");
   const [formMaxTokens, setFormMaxTokens] = createSignal(4096);
+  const [formTemperature, setFormTemperature] = createSignal("");
+  const [formPreamble, setFormPreamble] = createSignal("");
+  const [formBaseUrl, setFormBaseUrl] = createSignal("");
   const [formApiKey, setFormApiKey] = createSignal("");
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -53,6 +56,9 @@ export function AiAgentsView() {
     setFormProvider(agent.provider);
     setFormModel(agent.model);
     setFormMaxTokens(agent.max_tokens);
+    setFormTemperature(agent.temperature != null ? String(agent.temperature) : "");
+    setFormPreamble(agent.preamble ?? "");
+    setFormBaseUrl(agent.base_url ?? "");
     setFormApiKey("");
     setError(null);
   };
@@ -63,6 +69,9 @@ export function AiAgentsView() {
     setFormProvider("openai");
     setFormModel("");
     setFormMaxTokens(4096);
+    setFormTemperature("");
+    setFormPreamble("");
+    setFormBaseUrl("");
     setFormApiKey("");
     setError(null);
   };
@@ -71,7 +80,11 @@ export function AiAgentsView() {
     setSaving(true);
     setError(null);
     try {
-      await setAiAgent({ name: formName(), provider: formProvider(), model: formModel(), max_tokens: formMaxTokens() });
+      const tempStr = formTemperature().trim();
+      const temperature = tempStr !== "" ? parseFloat(tempStr) : undefined;
+      const preamble = formPreamble().trim() || undefined;
+      const base_url = formBaseUrl().trim() || undefined;
+      await setAiAgent({ name: formName(), provider: formProvider(), model: formModel(), max_tokens: formMaxTokens(), temperature, preamble, base_url });
       const needsKey = formApiKey().trim() && !["ollama", "llamafile"].includes(formProvider());
       if (needsKey) {
         await setSecret(derivedKey(), formApiKey().trim());
@@ -196,6 +209,46 @@ export function AiAgentsView() {
               class="w-full bg-bg-tertiary border border-border rounded px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
             />
           </div>
+
+          <div class="space-y-1">
+            <label class="text-text-secondary text-xs">Temperature</label>
+            <input
+              type="number"
+              min="0"
+              max="2"
+              step="0.01"
+              value={formTemperature()}
+              onInput={(e) => setFormTemperature(e.currentTarget.value)}
+              placeholder="Provider default"
+              class="w-full bg-bg-tertiary border border-border rounded px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
+            />
+            <p class="text-text-tertiary text-xs">0.0–2.0. Leave blank to use the provider default.</p>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-text-secondary text-xs">System Prompt</label>
+            <textarea
+              value={formPreamble()}
+              onInput={(e) => setFormPreamble(e.currentTarget.value)}
+              placeholder="Optional system prompt sent before every message"
+              rows={4}
+              class="w-full bg-bg-tertiary border border-border rounded px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent resize-y"
+            />
+          </div>
+
+          <Show when={["ollama", "llamafile"].includes(formProvider())}>
+            <div class="space-y-1">
+              <label class="text-text-secondary text-xs">Base URL</label>
+              <input
+                type="text"
+                value={formBaseUrl()}
+                onInput={(e) => setFormBaseUrl(e.currentTarget.value)}
+                placeholder={formProvider() === "llamafile" ? "http://localhost:8080" : "http://localhost:11434"}
+                class="w-full bg-bg-tertiary border border-border rounded px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
+              />
+              <p class="text-text-tertiary text-xs">Leave blank to use the default local address.</p>
+            </div>
+          </Show>
 
           <Show when={!["ollama", "llamafile"].includes(formProvider())}>
             <div class="space-y-1">

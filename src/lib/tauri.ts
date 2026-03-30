@@ -272,6 +272,9 @@ export interface AiAgent {
   provider: string;
   model: string;
   max_tokens: number;
+  temperature?: number;
+  preamble?: string;
+  base_url?: string;
 }
 
 export async function listAiAgents(): Promise<AiAgent[]> {
