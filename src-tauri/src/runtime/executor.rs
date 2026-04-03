@@ -207,6 +207,8 @@ async fn run_pipeline(
     database: Option<&Database>,
     secrets: &Secrets,
 ) -> Result<(), anyhow::Error> {
+    let channel = pipeline::channel_for_event(&event.subscription_type, &event.payload)
+        .unwrap_or_default();
     let (source_label, source_groups) = node_label_and_groups_from_graph(graph, path.source_id);
     tracing::debug!(source_id = path.source_id, node = %source_label, groups = %source_groups, "run_pipeline start");
     let mut slot_values = SlotStore::new();
@@ -280,7 +282,8 @@ async fn run_pipeline(
         let node_groups = node_groups_from_graph(graph, node_value);
         let inputs = resolve_inputs(node_id, node_value, &reverse_index, &slot_values);
         tracing::trace!(node_id, node = %node_label, groups = %node_groups, input_count = inputs.len(), "Resolved inputs");
-        metrics::record_node_execution(node_id, &node_label, node_type, &node_groups);
+        metrics::record_node_execution(node_id, &node_label, node_type, &node_groups, &channel);
+        let t0 = std::time::Instant::now();
         match execute_node(
             node_value,
             inputs,
@@ -294,25 +297,31 @@ async fn run_pipeline(
         .await
         {
             Ok(outputs) => {
+                let elapsed = t0.elapsed().as_millis() as f64;
+                metrics::record_node_execution_duration(node_id, &node_label, node_type, &node_groups, &channel, elapsed);
                 metrics::record_node_outcome(
                     node_id,
                     &node_label,
                     node_type,
                     &node_groups,
+                    &channel,
                     "success",
                 );
                 let output_count = outputs.len();
                 for (slot_index, value) in outputs {
                     slot_values.insert((node_id, slot_index), value);
                 }
-                tracing::debug!(node_id, node = %node_label, groups = %node_groups, output_count, "Node executed");
+                tracing::debug!(node_id, node = %node_label, groups = %node_groups, output_count, elapsed_ms = elapsed * 1000.0, "Node executed");
             }
             Err(error) => {
+                let elapsed = t0.elapsed().as_millis() as f64;
+                metrics::record_node_execution_duration(node_id, &node_label, node_type, &node_groups, &channel, elapsed);
                 metrics::record_node_outcome(
                     node_id,
                     &node_label,
                     node_type,
                     &node_groups,
+                    &channel,
                     "error",
                 );
                 tracing::warn!(node_id, node = %node_label, groups = %node_groups, error = %error, "Node execution failed");

@@ -66,9 +66,12 @@ Chart.register(
 const ALL_METRIC_NAMES = [
   "bruh_eventsub_events_total",
   "bruh_eventsub_events_dropped_total",
+  "bruh_eventsub_reconnects_total",
+  "bruh_chat_messages_received_total",
+  "bruh_chat_messages_sent_total",
   "bruh_node_executions_total",
   "bruh_node_outcomes_total",
-  "bruh_chat_messages_sent_total",
+  "bruh_node_execution_duration_ms_sum",
   "bruh_pipeline_events_dropped_total",
   "bruh_pipeline_runs_failed_total",
   "bruh_auth_token_refresh_failures_total",
@@ -77,13 +80,15 @@ const ALL_METRIC_NAMES = [
 
 /** Dashboard chart order and layout: row 1–2 are 2-col, row 3 is 3-col. */
 const DASHBOARD_METRIC_ORDER: string[] = [
-  "bruh_eventsub_events_total",
+  "bruh_chat_messages_received_total",
   "bruh_chat_messages_sent_total",
+  "bruh_eventsub_events_total",
   "bruh_node_executions_total",
   "bruh_node_outcomes_total",
-  "bruh_timer_ticks_sent_total",
+  "bruh_node_execution_duration_ms_sum",
   "bruh_pipeline_events_dropped_total",
   "bruh_pipeline_runs_failed_total",
+  "bruh_timer_ticks_sent_total",
 ];
 
 const CHART_COLORS = [
@@ -524,9 +529,9 @@ export function DashboardView() {
     return [...DASHBOARD_METRIC_ORDER, ...rest.sort()];
   };
 
-  const firstRowMetrics = (): string[] => metricNames().slice(0, 2);
-  const secondRowMetrics = (): string[] => metricNames().slice(2, 4);
-  const thirdRowMetrics = (): string[] => metricNames().slice(4, 7);
+  const firstRowMetrics = (): string[] => metricNames().slice(0, 3);
+  const secondRowMetrics = (): string[] => metricNames().slice(3, 6);
+  const thirdRowMetrics = (): string[] => metricNames().slice(6, 9);
 
   /** One pass over series map → per-metric filtered lists; stable refs when content unchanged. */
   const filteredByMetric = createMemo(() => {
@@ -622,7 +627,7 @@ export function DashboardView() {
           <p class="text-warning text-sm mb-2 shrink-0">{getLastError()}</p>
         </Show>
         <div class="flex-1 min-h-0 flex flex-col gap-3 w-full">
-          <div class="flex-1 min-h-0 grid grid-cols-2 gap-3 w-full">
+          <div class="flex-1 min-h-0 grid grid-cols-3 gap-3 w-full">
             <For each={firstRowMetrics()}>
               {(name: string) => (
                 <LazyMetricPanel
@@ -632,7 +637,7 @@ export function DashboardView() {
               )}
             </For>
           </div>
-          <div class="flex-1 min-h-0 grid grid-cols-2 gap-3 w-full">
+          <div class="flex-1 min-h-0 grid grid-cols-3 gap-3 w-full">
             <For each={secondRowMetrics()}>
               {(name: string) => (
                 <LazyMetricPanel

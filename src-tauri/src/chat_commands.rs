@@ -7,6 +7,7 @@ use tauri::State;
 use twitch_api::twitch_oauth2::TwitchToken;
 
 use crate::auth::{create_twitch_auth, AuthError, ReqwestTwitchAuth};
+use crate::metrics;
 use crate::setup::CommandError;
 use crate::Secrets;
 
@@ -72,6 +73,7 @@ pub async fn delete_chat_message(
             },
         }
     })?;
+    metrics::record_moderation_action("delete_message", broadcaster_id.as_str());
     Ok(())
 }
 
@@ -112,6 +114,7 @@ pub async fn timeout_user(
             },
         }
     })?;
+    metrics::record_moderation_action("timeout", broadcaster_id.as_str());
     Ok(())
 }
 
@@ -149,5 +152,6 @@ pub async fn ban_user(
             },
         }
     })?;
+    metrics::record_moderation_action("ban", broadcaster_id.as_str());
     Ok(())
 }

@@ -6,6 +6,7 @@ use serde_json::Value;
 
 use crate::ai_agents::{agent_secret_key, load_agents};
 use crate::config::Config;
+use crate::metrics;
 use crate::secrets::SecretsProvider;
 use crate::Secrets;
 
@@ -76,6 +77,7 @@ pub async fn execute(
     let prompt = substitute_placeholders(&prompt_template, &inputs);
 
     // Call the AI provider
+    metrics::record_ai_prompt_request(&agent_name, &agent.provider);
     let response = call_provider(
         &agent.provider,
         &agent.model,
@@ -86,7 +88,11 @@ pub async fn execute(
         agent.base_url.as_deref(),
         &prompt,
     )
-    .await?;
+    .await
+    .map_err(|e| {
+        metrics::record_ai_prompt_error(&agent_name, &agent.provider);
+        e
+    })?;
 
     Ok(vec![(0, Value::String(response))])
 }
