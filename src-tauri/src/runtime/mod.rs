@@ -10,6 +10,7 @@ mod parse;
 mod pipeline;
 mod timer;
 
+pub use nodes::ai_prompt_call_provider;
 pub use commands::{
     get_runtime_state, load_workflow, load_workflow_from_path, runtime_start, runtime_stop,
     save_workflow,

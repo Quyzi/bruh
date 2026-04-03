@@ -8,6 +8,7 @@ import { ScriptsView } from "./views/ScriptsView";
 import { AiAgentsView } from "./views/AiAgentsView";
 import { SecretsView } from "./views/SecretsView";
 import { DatabaseView } from "./views/DatabaseView";
+import { TestView } from "./views/TestView";
 import { HelpView } from "./docs/HelpView";
 import "./App.css";
 

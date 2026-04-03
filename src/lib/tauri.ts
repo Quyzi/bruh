@@ -288,3 +288,7 @@ export async function setAiAgent(agent: AiAgent): Promise<void> {
 export async function deleteAiAgent(name: string): Promise<void> {
   return invoke("delete_ai_agent", { name });
 }
+
+export async function testAiAgent(name: string, prompt: string): Promise<string> {
+  return invoke<string>("test_ai_agent", { name, prompt });
+}

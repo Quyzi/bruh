@@ -3,6 +3,7 @@
 use tauri::State;
 
 use crate::config::Config;
+use crate::runtime::ai_prompt_call_provider;
 use crate::secrets::SecretsProvider;
 use crate::setup::CommandError;
 use crate::Secrets;
@@ -32,6 +33,49 @@ pub async fn set_ai_agent(agent: AiAgent, config: State<'_, Config>) -> Result<(
         agents.push(agent);
     }
     save_agents(&config, &agents).map_err(|e| CommandError {
+        message: e.to_string(),
+    })
+}
+
+#[tauri::command]
+pub async fn test_ai_agent(
+    name: String,
+    prompt: String,
+    config: State<'_, Config>,
+    secrets: State<'_, Secrets>,
+) -> Result<String, CommandError> {
+    let agents = load_agents(&config).map_err(|e| CommandError {
+        message: e.to_string(),
+    })?;
+    let agent = agents
+        .iter()
+        .find(|a| a.name == name)
+        .ok_or_else(|| CommandError {
+            message: format!("Agent not found: {}", name),
+        })?;
+
+    let api_key = match agent.provider.as_str() {
+        "ollama" | "llamafile" => String::new(),
+        _ => {
+            let key = agent_secret_key(&agent.provider, &agent.name);
+            secrets.get(&key).map_err(|e| CommandError {
+                message: format!("Failed to get secret '{}': {}", key, e),
+            })?
+        }
+    };
+
+    ai_prompt_call_provider(
+        &agent.provider,
+        &agent.model,
+        &api_key,
+        agent.max_tokens,
+        agent.temperature,
+        agent.preamble.as_deref(),
+        agent.base_url.as_deref(),
+        &prompt,
+    )
+    .await
+    .map_err(|e: anyhow::Error| CommandError {
         message: e.to_string(),
     })
 }
