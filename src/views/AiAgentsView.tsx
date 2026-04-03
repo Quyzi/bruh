@@ -1,5 +1,5 @@
 import { createSignal, onMount, For, Show } from "solid-js";
-import { listAiAgents, setAiAgent, deleteAiAgent, setSecret, type AiAgent } from "../lib/tauri";
+import { listAiAgents, setAiAgent, deleteAiAgent, setSecret, testAiAgent, type AiAgent } from "../lib/tauri";
 
 const PROVIDERS = [
   "openai",
@@ -25,6 +25,11 @@ function agentSecretKey(provider: string, name: string): string {
   return `ai/${provider}/${slug}`;
 }
 
+function tauriErr(e: unknown): string {
+  if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
+  return String(e);
+}
+
 export function AiAgentsView() {
   const [agents, setAgents] = createSignal<AiAgent[]>([]);
   const [selectedName, setSelectedName] = createSignal<string | null>(null);
@@ -39,12 +44,18 @@ export function AiAgentsView() {
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
+  // Test panel
+  const [testPrompt, setTestPrompt] = createSignal("");
+  const [testResponse, setTestResponse] = createSignal<string | null>(null);
+  const [testRunning, setTestRunning] = createSignal(false);
+  const [testError, setTestError] = createSignal<string | null>(null);
+
   const refresh = async () => {
     try {
       const list = await listAiAgents();
       setAgents(list);
     } catch (e) {
-      setError(String(e));
+      setError(tauriErr(e));
     }
   };
 
@@ -61,6 +72,8 @@ export function AiAgentsView() {
     setFormBaseUrl(agent.base_url ?? "");
     setFormApiKey("");
     setError(null);
+    setTestResponse(null);
+    setTestError(null);
   };
 
   const handleNew = () => {
@@ -74,6 +87,8 @@ export function AiAgentsView() {
     setFormBaseUrl("");
     setFormApiKey("");
     setError(null);
+    setTestResponse(null);
+    setTestError(null);
   };
 
   const handleSave = async () => {
@@ -93,7 +108,7 @@ export function AiAgentsView() {
       await refresh();
       setSelectedName(formName());
     } catch (e) {
-      setError(String(e));
+      setError(tauriErr(e));
     } finally {
       setSaving(false);
     }
@@ -109,7 +124,23 @@ export function AiAgentsView() {
       setFormName("");
       await refresh();
     } catch (e) {
-      setError(String(e));
+      setError(tauriErr(e));
+    }
+  };
+
+  const handleTest = async () => {
+    const name = selectedName();
+    if (!name || !testPrompt().trim()) return;
+    setTestRunning(true);
+    setTestResponse(null);
+    setTestError(null);
+    try {
+      const result = await testAiAgent(name, testPrompt().trim());
+      setTestResponse(result);
+    } catch (e: unknown) {
+      setTestError(tauriErr(e));
+    } finally {
+      setTestRunning(false);
     }
   };
 
@@ -153,9 +184,9 @@ export function AiAgentsView() {
         </div>
       </div>
 
-      {/* Form panel */}
-      <div class="flex-1 overflow-y-auto p-6">
-        <div class="max-w-lg space-y-4">
+      {/* Config form */}
+      <div class="w-80 shrink-0 border-r border-border overflow-y-auto p-6">
+        <div class="space-y-4">
           <h2 class="text-text-primary font-medium text-sm">
             {selectedName() ? `Edit: ${selectedName()}` : "New Agent"}
           </h2>
@@ -292,6 +323,68 @@ export function AiAgentsView() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Test panel */}
+      <div class="flex-1 flex flex-col min-h-0">
+        <div class="px-5 py-3 border-b border-border shrink-0">
+          <span class="text-text-secondary text-xs font-medium uppercase tracking-wide">Test</span>
+          {selectedName() && (
+            <span class="ml-2 text-text-tertiary text-xs">· {selectedName()}</span>
+          )}
+        </div>
+
+        <Show
+          when={selectedName()}
+          fallback={
+            <div class="flex-1 flex items-center justify-center text-text-tertiary text-sm">
+              Select an agent to test it
+            </div>
+          }
+        >
+          <div class="flex flex-col flex-1 min-h-0 p-5 gap-4">
+            {/* Response area */}
+            <div class="flex-1 min-h-0 bg-bg-tertiary border border-border rounded overflow-y-auto p-4">
+              <Show when={testRunning()}>
+                <span class="text-text-tertiary text-sm italic">Running…</span>
+              </Show>
+              <Show when={testError()}>
+                <span class="text-error text-sm">{testError()}</span>
+              </Show>
+              <Show when={testResponse() !== null && !testRunning()}>
+                <pre class="text-text-primary text-sm whitespace-pre-wrap font-sans">{testResponse()}</pre>
+              </Show>
+              <Show when={testResponse() === null && !testRunning() && !testError()}>
+                <span class="text-text-tertiary text-sm italic">Response will appear here</span>
+              </Show>
+            </div>
+
+            {/* Prompt input */}
+            <div class="shrink-0 flex flex-col gap-2">
+              <textarea
+                value={testPrompt()}
+                onInput={(e) => setTestPrompt(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handleTest();
+                  }
+                }}
+                placeholder="Enter a prompt… (Ctrl+Enter to send)"
+                rows={4}
+                class="w-full bg-bg-tertiary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent resize-none"
+              />
+              <button
+                type="button"
+                onClick={handleTest}
+                disabled={testRunning() || !testPrompt().trim()}
+                class="self-end px-4 py-1.5 rounded text-xs font-medium bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors cursor-pointer"
+              >
+                {testRunning() ? "Running\u2026" : "Send"}
+              </button>
+            </div>
+          </div>
+        </Show>
       </div>
     </div>
   );

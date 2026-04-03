@@ -50,6 +50,7 @@ pub use twitch_broadcast_chat_formatted::try_parse as try_parse_twitch_broadcast
 /// Re-export execute functions for use by the executor.
 pub(crate) use constant::execute as execute_constant;
 pub(crate) use ai_prompt::execute as execute_ai_prompt;
+pub use ai_prompt::call_provider as ai_prompt_call_provider;
 pub(crate) use database_query::execute as execute_database_query;
 pub(crate) use database_query::execute_dynamic as execute_database_query_dynamic;
 pub(crate) use delete_secret::execute as execute_delete_secret;

@@ -120,6 +120,7 @@ pub fn run(
             ai_agents::commands::list_ai_agents,
             ai_agents::commands::set_ai_agent,
             ai_agents::commands::delete_ai_agent,
+            ai_agents::commands::test_ai_agent,
             render_metrics,
         ])
         .run(tauri::generate_context!())

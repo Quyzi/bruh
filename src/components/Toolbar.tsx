@@ -18,6 +18,7 @@ const MAIN_TABS: Tab[] = [
   { id: "secrets", label: "Secrets" },
   { id: "database", label: "Database" },
   { id: "setup", label: "Setup" },
+  { id: "test", label: "Test" },
   { id: "help", label: "Help" },
 ];
 

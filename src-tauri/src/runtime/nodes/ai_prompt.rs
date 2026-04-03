@@ -108,7 +108,7 @@ fn substitute_placeholders(template: &str, inputs: &HashMap<i32, Value>) -> Stri
     prompt
 }
 
-async fn call_provider(
+pub async fn call_provider(
     provider: &str,
     model: &str,
     api_key: &str,
