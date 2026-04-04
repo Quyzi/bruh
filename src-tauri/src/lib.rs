@@ -122,6 +122,7 @@ pub fn run(
             ai_agents::commands::delete_ai_agent,
             ai_agents::commands::test_ai_agent,
             render_metrics,
+            get_build_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -132,4 +133,12 @@ pub fn run(
 #[tauri::command]
 fn render_metrics(metrics: State<'_, PrometheusHandle>) -> Result<Vec<String>, CommandError> {
     Ok(metrics.render().lines().map(String::from).collect())
+}
+
+#[tauri::command]
+fn get_build_info() -> serde_json::Value {
+    serde_json::json!({
+        "version": env!("BRUH_VERSION"),
+        "gitHash": &env!("BRUH_GIT_HASH")[..8.min(env!("BRUH_GIT_HASH").len())],
+    })
 }

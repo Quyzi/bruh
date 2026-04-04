@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __BRUH_VERSION__: string;
+
 declare global {
   interface Window {
     __rhaiLanguage?: {

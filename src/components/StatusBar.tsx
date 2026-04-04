@@ -1,6 +1,6 @@
 import { createSignal, createEffect, For, Show, onMount, onCleanup } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
-import { getSetupStatus, loadChannels, validateTwitchToken } from "../lib/tauri";
+import { getSetupStatus, loadChannels, validateTwitchToken, getBuildInfo } from "../lib/tauri";
 import { twitchUsername, setTwitchUsername } from "../lib/authStore";
 import {
   chatLogForChannel,
@@ -80,6 +80,7 @@ export function StatusBar(props: StatusBarProps) {
   const [backlogLength, setBacklogLength] = createSignal(100);
   const [minLevel, setMinLevel] = createSignal(3); // Default to INFO
   const [authStatus, setAuthStatus] = createSignal<AuthStatus>("red");
+  const [gitHash, setGitHash] = createSignal<string>("");
   const [expandedHeight, setExpandedHeight] = createSignal(EXPANDED_HEIGHT_DEFAULT);
   const [isResizing, setIsResizing] = createSignal(false);
   let logId = 0;
@@ -144,6 +145,8 @@ export function StatusBar(props: StatusBarProps) {
   });
 
   onMount(async () => {
+    getBuildInfo().then((info) => setGitHash(info.gitHash)).catch(() => {});
+
     // Check auth status
     await checkAuthStatus();
 
@@ -260,11 +263,18 @@ export function StatusBar(props: StatusBarProps) {
             <span class="text-text-primary">{channelCountSignal()}</span>
           </div>
         </div>
-        <button
-          class="p-1 rounded text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all cursor-pointer"
-          onClick={props.onToggle}
-          title={props.expanded ? "Collapse" : "Expand"}
-        >
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-[#555]">
+            v{__BRUH_VERSION__}
+            <Show when={gitHash()}>
+              <span class="ml-1">({gitHash()})</span>
+            </Show>
+          </span>
+          <button
+            class="p-1 rounded text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all cursor-pointer"
+            onClick={props.onToggle}
+            title={props.expanded ? "Collapse" : "Expand"}
+          >
           <svg
             width="16"
             height="16"
@@ -281,7 +291,8 @@ export function StatusBar(props: StatusBarProps) {
               stroke-linejoin="round"
             />
           </svg>
-        </button>
+          </button>
+        </div>
       </div>
 
       <Show when={props.expanded}>

@@ -266,6 +266,16 @@ export async function gitCheckoutRevision(hash: string): Promise<void> {
   return invoke("git_checkout_revision", { hash });
 }
 
+// Build info
+export interface BuildInfo {
+  version: string;
+  gitHash: string;
+}
+
+export async function getBuildInfo(): Promise<BuildInfo> {
+  return invoke<BuildInfo>("get_build_info");
+}
+
 // AI Agents management
 export interface AiAgent {
   name: string;
