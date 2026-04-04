@@ -485,7 +485,7 @@ pub async fn run_eventsub_loop(
                                         payload: payload_value.clone(),
                                     };
                                     if let Err(error) = event_tx.send(pipeline_event) {
-                                        metrics::record_eventsub_event_dropped();
+                                        metrics::record_eventsub_event_dropped(&subscription_type);
                                         tracing::trace!(
                                             "EventSub: pipeline channel full or no receivers, event dropped: {}",
                                             error
@@ -497,6 +497,13 @@ pub async fn run_eventsub_loop(
                                         );
                                     }
                                     if subscription_type == "channel.chat.message" {
+                                        if let Some(inner) = pipeline::channel_chat_message_inner(&payload_value) {
+                                            let ch = inner.get("broadcaster_user_login").and_then(|v| v.as_str()).unwrap_or("");
+                                            let user = inner.get("chatter_user_login").and_then(|v| v.as_str()).unwrap_or("");
+                                            if !ch.is_empty() && !user.is_empty() {
+                                                metrics::record_chat_message_received(ch, user);
+                                            }
+                                        }
                                         if let Some(ref handle) = app_handle {
                                             match dashboard_chat_payload_from_value(&payload_value) {
                                                 Some(dashboard_payload) => {
@@ -542,6 +549,7 @@ pub async fn run_eventsub_loop(
                         .and_then(|u| u.as_str())
                         .map(String::from);
                     if let Some(url) = reconnect_url {
+                        metrics::record_eventsub_reconnect();
                         tracing::info!("EventSub reconnect to {}", url);
                         next_url = Some(url);
                         message_loop_done = true;

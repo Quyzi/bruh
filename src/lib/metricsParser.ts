@@ -47,6 +47,8 @@ export function parsePrometheusText(lines: string[]): MetricSample[] {
     const match = trimmed.match(metricRe);
     if (!match) continue;
     const [, name, labelsStr, valueStr] = match;
+    // Skip histogram bucket lines (_bucket suffix); _sum and _count are kept.
+    if (name?.endsWith("_bucket")) continue;
     const value = parseFloat(valueStr);
     if (Number.isNaN(value)) continue;
     const labels: Record<string, string> = {};

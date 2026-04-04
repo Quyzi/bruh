@@ -6,6 +6,7 @@ use anyhow;
 use serde_json::Value;
 
 use crate::config::Config;
+use crate::metrics;
 use crate::scripts::commands::execute_script_impl;
 use crate::setup::CommandError;
 
@@ -68,6 +69,8 @@ pub fn execute(
     let script_input = build_script_input(&inputs);
     let label = node_label.unwrap_or(script_name);
     tracing::debug!(script_name, node = %label, groups = ?node_groups, "Executing Rhai script");
+    metrics::record_script_execution(script_name);
+    let t0 = std::time::Instant::now();
     let result = execute_script_impl(
         script_name,
         Some(script_input),
@@ -75,7 +78,11 @@ pub fn execute(
         node_label,
         node_groups,
     )
-    .map_err(|e: CommandError| anyhow::anyhow!("{}", e.message))?;
+    .map_err(|e: CommandError| {
+        metrics::record_script_error(script_name);
+        anyhow::anyhow!("{}", e.message)
+    })?;
+    metrics::record_script_execution_duration(script_name, t0.elapsed().as_millis() as f64);
     let outputs = parse_script_outputs(result.clone());
     if let Some(obj) = result.as_object() {
         let keys: Vec<&str> = obj.keys().map(String::as_str).collect();

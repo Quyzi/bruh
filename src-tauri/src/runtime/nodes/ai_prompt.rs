@@ -6,6 +6,7 @@ use serde_json::Value;
 
 use crate::ai_agents::{agent_secret_key, load_agents};
 use crate::config::Config;
+use crate::metrics;
 use crate::secrets::SecretsProvider;
 use crate::Secrets;
 
@@ -76,6 +77,7 @@ pub async fn execute(
     let prompt = substitute_placeholders(&prompt_template, &inputs);
 
     // Call the AI provider
+    metrics::record_ai_prompt_request(&agent_name, &agent.provider);
     let response = call_provider(
         &agent.provider,
         &agent.model,
@@ -86,7 +88,11 @@ pub async fn execute(
         agent.base_url.as_deref(),
         &prompt,
     )
-    .await?;
+    .await
+    .map_err(|e| {
+        metrics::record_ai_prompt_error(&agent_name, &agent.provider);
+        e
+    })?;
 
     Ok(vec![(0, Value::String(response))])
 }
@@ -216,6 +222,18 @@ pub async fn call_provider(
         "llamafile" => {
             let url = base_url.unwrap_or("http://localhost:8080");
             let client = rig::providers::llamafile::Client::from_url(url);
+            let response = build_agent!(client).prompt(prompt).await?;
+            Ok(response)
+        }
+        "openai_compatible" => {
+            let url = base_url
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| anyhow::anyhow!("openai_compatible provider requires a Base URL"))?;
+            let client = rig::providers::openai::CompletionsClient::builder()
+                .api_key(api_key)
+                .base_url(url)
+                .build()
+                .map_err(|e| anyhow::anyhow!("Failed to create openai_compatible client: {}", e))?;
             let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }

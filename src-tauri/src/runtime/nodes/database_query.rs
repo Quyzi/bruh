@@ -7,6 +7,7 @@ use async_duckdb::duckdb;
 use async_duckdb::duckdb::types::ValueRef;
 use serde_json::Value;
 
+use crate::metrics;
 use crate::Database;
 
 fn value_ref_to_json(v: ValueRef<'_>) -> Value {
@@ -149,6 +150,8 @@ pub async fn execute_dynamic(
         return Ok(Vec::new());
     }
     let is_write = query_trim_is_insert_update_delete(query.trim());
+    let kind = if is_write { "write" } else { "read" };
+    metrics::record_database_query(kind);
     let db_clone = db.clone();
     let result: Result<Vec<Value>, _> = db_clone
         .conn(move |conn| {
@@ -160,7 +163,10 @@ pub async fn execute_dynamic(
             collect_rows(stmt.query([])?)
         })
         .await;
-    let list = result.map_err(|e| anyhow::anyhow!("DB query (dynamic) failed: {}", e))?;
+    let list = result.map_err(|e| {
+        metrics::record_database_query_error(kind);
+        anyhow::anyhow!("DB query (dynamic) failed: {}", e)
+    })?;
     let output = if list.is_empty() {
         Value::Array(vec![Value::Null])
     } else {
@@ -237,6 +243,7 @@ pub async fn execute(
         param_values.push(None);
     }
     let is_write = query_trim_is_insert_update_delete(query.trim());
+    let kind = if is_write { "write" } else { "read" };
     let first_param = param_values.first().and_then(Option::as_ref);
     if is_write && param_count >= 1 && first_param.is_none() {
         tracing::debug!(
@@ -246,6 +253,7 @@ pub async fn execute(
         );
         return Ok(Vec::new());
     }
+    metrics::record_database_query(kind);
     let db_clone = db.clone();
     let result: Result<Vec<Value>, _> = db_clone
         .conn(move |conn| {
@@ -317,7 +325,10 @@ pub async fn execute(
             Ok(vec)
         })
         .await;
-    let list = result.map_err(|e| anyhow::anyhow!("DB query failed: {}", e))?;
+    let list = result.map_err(|e| {
+        metrics::record_database_query_error(kind);
+        anyhow::anyhow!("DB query failed: {}", e)
+    })?;
     let output = if list.is_empty() {
         Value::Array(vec![Value::Null])
     } else {

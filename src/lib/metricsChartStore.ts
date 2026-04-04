@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { batch, createSignal } from "solid-js";
 import { renderMetrics } from "./tauri";
 import {
   parsePrometheusText,
@@ -51,7 +51,7 @@ function maxPoints(): number {
 
 function trimSeries(data: SeriesPoint[], max: number): SeriesPoint[] {
   if (data.length <= max) return data;
-  return data.slice(-max);
+  return data.slice(data.length - max);
 }
 
 export function getPollIntervalMs(): number {
@@ -158,7 +158,6 @@ function tick(): void {
       if (hash === lastScrapeHash) return;
       lastScrapeHash = hash;
       const samples = parsePrometheusText(lines);
-      setLastSamples(samples);
       const now = Date.now();
       const max = maxPoints();
       const prev = seriesMap();
@@ -167,9 +166,15 @@ function tick(): void {
         const key = seriesKey(s);
         const existing = prev.get(key);
         const point: SeriesPoint = { t: now, v: s.value };
-        const data = existing
-          ? trimSeries([...existing.data, point], max)
-          : [point];
+        let data: SeriesPoint[];
+        if (existing) {
+          const appended = existing.data;
+          appended.length < max
+            ? (data = [...existing.data, point])
+            : (data = trimSeries([...existing.data, point], max));
+        } else {
+          data = [point];
+        }
         next.set(key, {
           key,
           name: s.name,
@@ -178,9 +183,12 @@ function tick(): void {
           data,
         });
       }
-      setSeriesMap((current) => {
-        if (seriesMapUnchanged(current, next)) return current;
-        return next;
+      batch(() => {
+        setLastSamples(samples);
+        setSeriesMap((current) => {
+          if (seriesMapUnchanged(current, next)) return current;
+          return next;
+        });
       });
     })
     .catch((err: unknown) => {

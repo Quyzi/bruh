@@ -15,7 +15,12 @@ const PROVIDERS = [
   "xai",
   "ollama",
   "llamafile",
+  "openai_compatible",
 ];
+
+const PROVIDER_LABELS: Record<string, string> = {
+  openai_compatible: "OpenAI Compatible",
+};
 
 function agentSecretKey(provider: string, name: string): string {
   const slug = name
@@ -209,7 +214,7 @@ export function AiAgentsView() {
                 onChange={(e) => setFormProvider(e.currentTarget.value)}
                 class="w-full appearance-none bg-bg-tertiary border border-border rounded px-3 py-1.5 pr-8 text-sm text-text-primary focus:outline-none focus:border-accent cursor-pointer"
               >
-                <For each={PROVIDERS}>{(p) => <option value={p} selected={formProvider() === p} style="background-color: var(--color-bg-tertiary); color: var(--color-text-primary);">{p}</option>}</For>
+                <For each={PROVIDERS}>{(p) => <option value={p} selected={formProvider() === p} style="background-color: var(--color-bg-tertiary); color: var(--color-text-primary);">{PROVIDER_LABELS[p] ?? p}</option>}</For>
               </select>
               <div class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-text-secondary">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,17 +272,27 @@ export function AiAgentsView() {
             />
           </div>
 
-          <Show when={["ollama", "llamafile"].includes(formProvider())}>
+          <Show when={["ollama", "llamafile", "openai_compatible"].includes(formProvider())}>
             <div class="space-y-1">
               <label class="text-text-secondary text-xs">Base URL</label>
               <input
                 type="text"
                 value={formBaseUrl()}
                 onInput={(e) => setFormBaseUrl(e.currentTarget.value)}
-                placeholder={formProvider() === "llamafile" ? "http://localhost:8080" : "http://localhost:11434"}
+                placeholder={
+                  formProvider() === "llamafile"
+                    ? "http://localhost:8080"
+                    : formProvider() === "openai_compatible"
+                    ? "http://localhost:1234/v1"
+                    : "http://localhost:11434"
+                }
                 class="w-full bg-bg-tertiary border border-border rounded px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
               />
-              <p class="text-text-tertiary text-xs">Leave blank to use the default local address.</p>
+              <p class="text-text-tertiary text-xs">
+                {formProvider() === "openai_compatible"
+                  ? "Required. The base URL of your OpenAI-compatible API (e.g. LM Studio, vLLM, Azure)."
+                  : "Leave blank to use the default local address."}
+              </p>
             </div>
           </Show>
 
@@ -307,7 +322,7 @@ export function AiAgentsView() {
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving() || !formName().trim() || !formModel().trim() || (!selectedName() && !["ollama", "llamafile"].includes(formProvider()) && !formApiKey().trim())}
+              disabled={saving() || !formName().trim() || !formModel().trim() || (!selectedName() && !["ollama", "llamafile"].includes(formProvider()) && !formApiKey().trim()) || (formProvider() === "openai_compatible" && !formBaseUrl().trim())}
               class="px-4 py-1.5 rounded text-xs font-medium bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors cursor-pointer"
             >
               {saving() ? "Saving\u2026" : "Save"}
