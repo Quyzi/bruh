@@ -225,6 +225,18 @@ pub async fn call_provider(
             let response = build_agent!(client).prompt(prompt).await?;
             Ok(response)
         }
+        "openai_compatible" => {
+            let url = base_url
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| anyhow::anyhow!("openai_compatible provider requires a Base URL"))?;
+            let client = rig::providers::openai::CompletionsClient::builder()
+                .api_key(api_key)
+                .base_url(url)
+                .build()
+                .map_err(|e| anyhow::anyhow!("Failed to create openai_compatible client: {}", e))?;
+            let response = build_agent!(client).prompt(prompt).await?;
+            Ok(response)
+        }
         _ => Err(anyhow::anyhow!("Unsupported AI provider: {}", provider)),
     }
 }
