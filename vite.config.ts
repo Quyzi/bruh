@@ -1,6 +1,10 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 import tailwindcss from "@tailwindcss/vite";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
+const pkg = JSON.parse(readFileSync(resolve(__dirname, "package.json"), "utf-8")) as { version: string };
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -8,6 +12,10 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [solid(), tailwindcss()],
+
+  define: {
+    __BRUH_VERSION__: JSON.stringify(pkg.version),
+  },
 
   optimizeDeps: {
     exclude: ["monaco-editor"],
