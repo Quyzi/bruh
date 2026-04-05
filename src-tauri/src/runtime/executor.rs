@@ -110,6 +110,7 @@ pub async fn executor_loop(
     database: Option<Database>,
     secrets: Secrets,
     mut receiver: tokio::sync::broadcast::Receiver<PipelineEvent>,
+    app_handle: tauri::AppHandle,
 ) {
     tracing::info!("Pipeline executor loop started");
     loop {
@@ -809,6 +810,9 @@ async fn execute_node(
         }
         "ai/prompt" => {
             super::nodes::execute_ai_prompt(node_value, inputs, secrets, config, node_groups).await
+        }
+        "overlay/display" => {
+            super::nodes::execute_overlay_display(node_value, inputs).await
         }
         _ => {
             tracing::debug!(node_type, node = %label, groups = ?node_groups, "Unknown node type, skip execution");

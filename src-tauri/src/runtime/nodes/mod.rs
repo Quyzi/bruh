@@ -7,6 +7,7 @@ mod delete_secret;
 mod generic_event_source;
 mod get_secret;
 mod list_secrets;
+mod overlay_display;
 mod script_rhai;
 mod set_secret;
 pub mod timer_interval;
@@ -21,6 +22,7 @@ pub use delete_secret::{try_parse as try_parse_delete_secret, DeleteSecret};
 pub use generic_event_source::{try_parse as try_parse_generic_event_source, GenericEventSource};
 pub use get_secret::{try_parse as try_parse_get_secret, GetSecret};
 pub use list_secrets::{try_parse as try_parse_list_secrets, ListSecrets};
+pub use overlay_display::{try_parse as try_parse_overlay_display, OverlayDisplay};
 pub use script_rhai::{try_parse as try_parse_script_rhai, ScriptRhai};
 pub use set_secret::{try_parse as try_parse_set_secret, SetSecret};
 pub use timer_interval::{try_parse as try_parse_timer_interval, TimerInterval};
@@ -62,6 +64,7 @@ pub(crate) use twitch_broadcast_chat::execute as execute_twitch_broadcast_chat;
 pub(crate) use twitch_broadcast_chat_formatted::execute as execute_twitch_broadcast_chat_formatted;
 pub(crate) use twitch_send_chat::execute as execute_twitch_send_chat;
 pub(crate) use twitch_send_chat_formatted::execute as execute_twitch_send_chat_formatted;
+pub(crate) use overlay_display::execute as execute_overlay_display;
 
 use serde_json::Value;
 
@@ -95,6 +98,7 @@ pub fn role_for_type(type_str: &str) -> NodeRole {
         "secrets/delete" => NodeRole::ResultAction,
         "twitch/send_chat" => NodeRole::ResultAction,
         "twitch/broadcast_chat" => NodeRole::ResultAction,
+        "overlay/display" => NodeRole::ResultAction,
         _ => NodeRole::Unknown,
     }
 }
@@ -115,6 +119,7 @@ pub enum TypedNode {
     SetSecret(SetSecret),
     ListSecrets(ListSecrets),
     DeleteSecret(DeleteSecret),
+    OverlayDisplay(OverlayDisplay),
 }
 
 impl TypedNode {
@@ -134,6 +139,7 @@ impl TypedNode {
             TypedNode::SetSecret(_) => NodeRole::ResultAction,
             TypedNode::ListSecrets(_) => NodeRole::Transformer,
             TypedNode::DeleteSecret(_) => NodeRole::ResultAction,
+            TypedNode::OverlayDisplay(_) => NodeRole::ResultAction,
         }
     }
 
@@ -153,6 +159,7 @@ impl TypedNode {
             TypedNode::SetSecret(n) => n.id,
             TypedNode::ListSecrets(n) => n.id,
             TypedNode::DeleteSecret(n) => n.id,
+            TypedNode::OverlayDisplay(n) => n.id,
         }
     }
 }
@@ -240,6 +247,9 @@ pub fn try_parse_node(node: &Value) -> Option<TypedNode> {
     }
     if let Some(n) = try_parse_timer_interval(node) {
         return Some(TypedNode::TimerInterval(n));
+    }
+    if let Some(n) = try_parse_overlay_display(node) {
+        return Some(TypedNode::OverlayDisplay(n));
     }
     None
 }

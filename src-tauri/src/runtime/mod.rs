@@ -167,6 +167,7 @@ mod runtime {
             let secrets = self.secrets.clone();
             let event_rx = self.event_tx.subscribe();
             let pipeline = Pipeline::default();
+            let app_handle = app_handle.clone();
             let handle = tokio::spawn(async move {
                 executor::executor_loop(
                     workflow,
@@ -176,6 +177,7 @@ mod runtime {
                     database,
                     secrets,
                     event_rx,
+                    app_handle,
                 )
                 .await;
             });
