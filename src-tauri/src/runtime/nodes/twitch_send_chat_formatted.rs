@@ -128,10 +128,7 @@ pub async fn execute(
         match response.data.into_iter().next() {
             Some(u) => u.id,
             None => {
-                tracing::warn!(
-                    "TwitchSendChatFormatted: channel '{}' not found",
-                    channel
-                );
+                tracing::warn!("TwitchSendChatFormatted: channel '{}' not found", channel);
                 return Ok(Vec::new());
             }
         }
@@ -143,8 +140,7 @@ pub async fn execute(
         } else {
             use twitch_api::helix::users::get_users;
             let helix = auth.helix_client();
-            let request =
-                get_users::GetUsersRequest::ids(std::slice::from_ref(&broadcaster_id));
+            let request = get_users::GetUsersRequest::ids(std::slice::from_ref(&broadcaster_id));
             match helix.req_get(request, &token).await {
                 Ok(response) => response
                     .data
@@ -173,10 +169,7 @@ pub async fn execute(
         );
         let request = send_chat_message::SendChatMessageRequest::new();
         if let Err(e) = helix.req_post(request, body, &token).await {
-            tracing::warn!(
-                "TwitchSendChatFormatted: send_chat_message failed: {}",
-                e
-            );
+            tracing::warn!("TwitchSendChatFormatted: send_chat_message failed: {}", e);
             return Err(anyhow::anyhow!("send_chat_message: {}", e));
         }
         metrics::record_chat_message_sent(&channel_for_metrics);

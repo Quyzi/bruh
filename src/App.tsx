@@ -10,12 +10,15 @@ import { SecretsView } from "./views/SecretsView";
 import { DatabaseView } from "./views/DatabaseView";
 import { TestView } from "./views/TestView";
 import { HelpView } from "./docs/HelpView";
+import { OverlayView } from "./views/OverlayView";
+import { OverlayWindowView } from "./views/OverlayWindowView";
 import "./App.css";
 
-export type TabId = "dashboard" | "channels" | "workflow" | "scripts" | "ai-agents" | "secrets" | "database" | "setup" | "help";
+export type TabId = "dashboard" | "channels" | "workflow" | "scripts" | "ai-agents" | "secrets" | "database" | "setup" | "help" | "overlay";
 
-// Check for callback URL immediately (before component renders)
+// Check URL immediately (before component renders)
 const initialUrl = new URL(window.location.href);
+const isOverlayWindow = initialUrl.pathname === "/overlay";
 const isCallback = initialUrl.pathname === "/callback" && initialUrl.searchParams.has("code");
 const callbackFullUrl = isCallback ? window.location.href : "";
 const callbackError = initialUrl.pathname === "/callback" ? initialUrl.searchParams.get("error") : null;
@@ -157,20 +160,26 @@ function App() {
       <div class={activeTab() === "help" ? "h-full flex flex-col min-h-0" : "hidden"}>
         <HelpView />
       </div>
+      <div class={activeTab() === "overlay" ? "h-full flex flex-col min-h-0" : "hidden"}>
+        <OverlayView />
+      </div>
     </Layout>
   );
 }
 
 // Export the appropriate component based on URL
 export default function Root() {
-  // Handle callback pages before rendering the main app
+  if (isOverlayWindow) {
+    return <OverlayWindowView />;
+  }
+
   if (isCallback) {
     return <CallbackPage />;
   }
-  
+
   if (callbackError) {
     return <CallbackErrorPage />;
   }
-  
+
   return <App />;
 }

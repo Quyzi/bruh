@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use metrics_exporter_prometheus::PrometheusHandle;
-use tauri::State;
+use tauri::{Manager, State, WindowEvent};
 use tokio::sync::RwLock;
 use tracing_subscriber::{
     filter::LevelFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt, Registry,
@@ -17,6 +17,7 @@ pub mod database;
 pub mod git;
 pub mod log_layer;
 pub mod metrics;
+pub mod overlay;
 pub mod runtime;
 pub mod scripts;
 pub mod secrets;
@@ -75,7 +76,23 @@ pub fn run(
         .manage(secrets)
         .manage(db)
         .manage(metrics)
-        .manage(runtime_state)
+        .manage(runtime_state.clone())
+        .on_window_event(move |window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let runtime_state = runtime_state.clone();
+                let w = window.clone();
+                let app_handle = window.app_handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let run = runtime_state.clone();
+                    let mut guard = run.write().await;
+                    guard.stop().await;
+                    tracing::info!("Runtime stopped due to window close");
+                    w.close().unwrap();
+                    app_handle.exit(0);
+                });
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             setup::get_setup_status,
@@ -123,6 +140,17 @@ pub fn run(
             ai_agents::commands::test_ai_agent,
             render_metrics,
             get_build_info,
+            overlay::open_overlay_window,
+            overlay::close_overlay_window,
+            overlay::toggle_overlay_window,
+            overlay::save_template,
+            overlay::load_template,
+            overlay::list_templates,
+            overlay::delete_template,
+            overlay::save_css,
+            overlay::load_css,
+            overlay::save_default_template,
+            overlay::load_default_template,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

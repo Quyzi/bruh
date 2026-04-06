@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use serde_json::Value;
+use tauri::Emitter;
 
 const MIN_DURATION_MS: u32 = 1000;
 const MAX_DURATION_MS: u32 = 30000;
@@ -83,6 +84,7 @@ pub fn try_parse(node: &Value) -> Option<OverlayDisplay> {
 pub async fn execute(
     node_value: &Value,
     inputs: HashMap<i32, Value>,
+    app_handle: tauri::AppHandle,
 ) -> Result<Vec<(i32, Value)>, anyhow::Error> {
     let channel = inputs
         .get(&0)
@@ -101,7 +103,10 @@ pub async fn execute(
         .unwrap_or_default();
     let duration_ms = inputs
         .get(&3)
-        .and_then(|v| v.as_u64().or(v.as_i64().filter(|&n| n >= 0).map(|n| n as u64)))
+        .and_then(|v| {
+            v.as_u64()
+                .or(v.as_i64().filter(|&n| n >= 0).map(|n| n as u64))
+        })
         .and_then(|n| u32::try_from(n).ok())
         .unwrap_or_else(|| duration_ms_from_node(node_value))
         .clamp(MIN_DURATION_MS, MAX_DURATION_MS);
@@ -118,5 +123,7 @@ pub async fn execute(
 
     tracing::debug!(template = %template_name, duration = duration_ms, "Overlay display triggered");
 
-    Ok(vec![(0, event_data)])
+    let _ = app_handle.emit("overlay-display", event_data);
+
+    Ok(vec![(0, serde_json::json!({"status": "sent"}))])
 }

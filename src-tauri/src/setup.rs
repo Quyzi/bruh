@@ -25,6 +25,12 @@ pub struct CommandError {
     pub message: String,
 }
 
+impl CommandError {
+    pub fn new(message: String) -> Self {
+        Self { message }
+    }
+}
+
 impl From<SecretsError> for CommandError {
     fn from(err: SecretsError) -> Self {
         CommandError {

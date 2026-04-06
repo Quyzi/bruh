@@ -4,8 +4,10 @@ import { GitControls } from "./GitControls";
 import logo from "../assets/logo.png";
 import {
   getRuntimeState,
+  getOverlayWindowState,
   runtimeStart,
   runtimeStop,
+  toggleOverlayWindow,
   type RuntimeState,
 } from "../lib/tauri";
 
@@ -29,6 +31,7 @@ interface ToolbarProps {
 export function Toolbar(props: ToolbarProps) {
   const [status, setStatus] = createSignal<RuntimeState | null>(null);
   const [loading, setLoading] = createSignal(false);
+  const [overlayVisible, setOverlayVisible] = createSignal(false);
 
   const refreshStatus = async () => {
     try {
@@ -41,6 +44,7 @@ export function Toolbar(props: ToolbarProps) {
 
   onMount(() => {
     refreshStatus();
+    getOverlayWindowState().then(setOverlayVisible).catch(() => {});
   });
 
   const isRunning = () => status() === "running";
@@ -134,6 +138,18 @@ export function Toolbar(props: ToolbarProps) {
           class="h-6 px-2 rounded text-xs font-medium bg-bg-tertiary hover:bg-border disabled:opacity-50 disabled:cursor-not-allowed text-text-primary border border-border transition-colors cursor-pointer"
         >
           Restart
+        </button>
+        <div class="w-px h-4 bg-border shrink-0" />
+        <button
+          type="button"
+          onClick={async () => {
+            await toggleOverlayWindow();
+            setOverlayVisible(!overlayVisible());
+          }}
+          class="h-6 px-2 rounded text-xs font-medium bg-bg-tertiary hover:bg-border text-text-primary border border-border transition-colors cursor-pointer"
+          title={overlayVisible() ? "Hide Overlay" : "Show Overlay"}
+        >
+          {overlayVisible() ? "◉" : "○"}
         </button>
       </div>
     </header>
