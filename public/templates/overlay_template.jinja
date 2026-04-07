@@ -1,0 +1,126 @@
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html, body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+.eb-container {
+  width: 100%;
+  height: 100%;
+  padding: 14px;
+}
+.eb-textbox {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(15, 10, 30, 0.95), rgba(25, 15, 50, 0.95));
+  border: 2px solid #7c3aed;
+  border-radius: 14px;
+  padding: 18px 22px;
+  box-shadow:
+    0 0 18px rgba(124, 58, 237, 0.35),
+    0 0 0 1px rgba(124, 58, 237, 0.15),
+    0 6px 24px rgba(0, 0, 0, 0.6);
+}
+.eb-text {
+  color: #e9e4f7;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.eb-mention {
+  display: inline;
+}
+.eb-char {
+  display: inline-block;
+  animation:
+    eb-wave    0.7s ease-in-out infinite,
+    eb-rainbow 1.8s linear     infinite;
+  text-shadow: 0 0 10px currentColor;
+  font-weight: bold;
+}
+@keyframes eb-wave {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-5px); }
+}
+@keyframes eb-rainbow {
+  0%    { color: hsl(0,   100%, 70%); }
+  16.6% { color: hsl(60,  100%, 70%); }
+  33.3% { color: hsl(120, 100%, 70%); }
+  50%   { color: hsl(180, 100%, 70%); }
+  66.6% { color: hsl(240, 100%, 70%); }
+  83.3% { color: hsl(300, 100%, 70%); }
+  100%  { color: hsl(360, 100%, 70%); }
+}
+.eb-cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  background: #a78bfa;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  animation: blink .75s step-end infinite;
+}
+@keyframes blink {
+  from, to { background-color: transparent }
+  50%       { background-color: #a78bfa }
+}
+</style>
+
+<div id="eb-raw" style="display:none">{{ message }}</div>
+
+<div class="eb-container">
+  <div class="eb-textbox">
+    <p class="eb-text" id="eb-text"><span class="eb-cursor" id="eb-cursor"></span></p>
+  </div>
+</div>
+
+<script>
+(function () {
+  const message = document.getElementById('eb-raw').textContent;
+  const cursor  = document.getElementById('eb-cursor');
+  const speed   = 40;
+
+  const tokens = message.split(/(@\w+)/).filter(Boolean).map(function (part) {
+    return { mention: /^@\w+$/.test(part), content: part };
+  });
+
+  let ti = 0, ci = 0, span = null;
+
+  function type() {
+    if (ti >= tokens.length) return;
+    const token = tokens[ti];
+
+    if (ci === 0 && token.mention) {
+      span = document.createElement('span');
+      span.className = 'eb-mention';
+      cursor.parentNode.insertBefore(span, cursor);
+    }
+
+    if (token.mention && span) {
+      const ch = document.createElement('span');
+      ch.className = 'eb-char';
+      ch.style.animationDelay = (ci * 0.07) + 's';
+      ch.textContent = token.content[ci];
+      span.appendChild(ch);
+    } else {
+      cursor.insertAdjacentText('beforebegin', token.content[ci]);
+    }
+
+    ci++;
+    if (ci >= token.content.length) { ti++; ci = 0; span = null; }
+
+    setTimeout(type, speed);
+  }
+
+  type();
+})();
+</script>

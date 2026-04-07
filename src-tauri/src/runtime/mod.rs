@@ -10,7 +10,6 @@ mod parse;
 mod pipeline;
 mod timer;
 
-pub use nodes::ai_prompt_call_provider;
 pub use commands::{
     get_runtime_state, load_workflow, load_workflow_from_path, runtime_start, runtime_stop,
     save_workflow,
@@ -18,6 +17,7 @@ pub use commands::{
 pub use events::{PipelineEvent, PIPELINE_EVENT_CHANNEL_CAPACITY};
 pub use eventsub::workflow_event_types;
 pub use graph::{Link, SerializedGroup, WorkflowGraph};
+pub use nodes::ai_prompt_call_provider;
 pub use nodes::{
     GetSecret, NodeRole, ScriptRhai, TwitchChatMessagePrefix, TwitchSendChat, TypedNode,
 };
@@ -167,6 +167,7 @@ mod runtime {
             let secrets = self.secrets.clone();
             let event_rx = self.event_tx.subscribe();
             let pipeline = Pipeline::default();
+            let app_handle = app_handle.clone();
             let handle = tokio::spawn(async move {
                 executor::executor_loop(
                     workflow,
@@ -176,6 +177,7 @@ mod runtime {
                     database,
                     secrets,
                     event_rx,
+                    app_handle,
                 )
                 .await;
             });

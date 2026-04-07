@@ -29,6 +29,9 @@ import { register as registerDeleteSecret } from "./secrets/DeleteSecretNode";
 // Utilities nodes
 import { register as registerTimer } from "./utilities/TimerNode";
 
+// Overlay nodes
+import { register as registerOverlayDisplay } from "./OverlayDisplayNode";
+
 // Primitives nodes
 import { register as registerConstant } from "./primitives/ConstantNode";
 
@@ -56,6 +59,7 @@ const ALLOWED_NODE_CATEGORIES = new Set([
   "secrets",
   "utilities",
   "primitives",
+  "overlay",
 ]);
 
 /**
@@ -64,7 +68,7 @@ const ALLOWED_NODE_CATEGORIES = new Set([
  */
 function restrictNodeCategories() {
   const original = LiteGraph.getNodeTypesCategories.bind(LiteGraph);
-  LiteGraph.getNodeTypesCategories = function (filter: unknown) {
+  LiteGraph.getNodeTypesCategories = function (filter: string) {
     const categories = original(filter);
     return categories.filter((category: string) =>
       ALLOWED_NODE_CATEGORIES.has(category) ||
@@ -113,6 +117,9 @@ export function registerAllNodes() {
 
   // Primitives
   registerConstant();
+
+  // Overlay
+  registerOverlayDisplay();
 
   restrictNodeCategories();
 }

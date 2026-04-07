@@ -67,7 +67,14 @@ pub fn record_node_execution(id: i32, name: &str, node_type: &str, group: &str, 
 }
 
 /// Records node outcome (success or error).
-pub fn record_node_outcome(id: i32, name: &str, node_type: &str, group: &str, channel: &str, outcome: &str) {
+pub fn record_node_outcome(
+    id: i32,
+    name: &str,
+    node_type: &str,
+    group: &str,
+    channel: &str,
+    outcome: &str,
+) {
     counter!(
         NODE_OUTCOMES_TOTAL,
         "id" => id.to_string(),
@@ -81,7 +88,14 @@ pub fn record_node_outcome(id: i32, name: &str, node_type: &str, group: &str, ch
 }
 
 /// Records node execution duration in milliseconds.
-pub fn record_node_execution_duration(id: i32, name: &str, node_type: &str, group: &str, channel: &str, duration_ms: f64) {
+pub fn record_node_execution_duration(
+    id: i32,
+    name: &str,
+    node_type: &str,
+    group: &str,
+    channel: &str,
+    duration_ms: f64,
+) {
     histogram!(
         NODE_EXECUTION_DURATION_MS,
         "id" => id.to_string(),

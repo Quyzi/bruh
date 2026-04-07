@@ -110,6 +110,7 @@ pub async fn executor_loop(
     database: Option<Database>,
     secrets: Secrets,
     mut receiver: tokio::sync::broadcast::Receiver<PipelineEvent>,
+    app_handle: tauri::AppHandle,
 ) {
     tracing::info!("Pipeline executor loop started");
     loop {
@@ -165,6 +166,7 @@ pub async fn executor_loop(
                         authenticator.as_ref(),
                         database.as_ref(),
                         &secrets,
+                        &app_handle,
                     )
                     .await
                     {
@@ -206,9 +208,10 @@ async fn run_pipeline(
     authenticator: Option<&std::sync::Arc<ReqwestTwitchAuth>>,
     database: Option<&Database>,
     secrets: &Secrets,
+    app_handle: &tauri::AppHandle,
 ) -> Result<(), anyhow::Error> {
-    let channel = pipeline::channel_for_event(&event.subscription_type, &event.payload)
-        .unwrap_or_default();
+    let channel =
+        pipeline::channel_for_event(&event.subscription_type, &event.payload).unwrap_or_default();
     let (source_label, source_groups) = node_label_and_groups_from_graph(graph, path.source_id);
     tracing::debug!(source_id = path.source_id, node = %source_label, groups = %source_groups, "run_pipeline start");
     let mut slot_values = SlotStore::new();
@@ -293,12 +296,20 @@ async fn run_pipeline(
             secrets,
             Some(&node_label),
             Some(&node_groups),
+            app_handle,
         )
         .await
         {
             Ok(outputs) => {
                 let elapsed = t0.elapsed().as_millis() as f64;
-                metrics::record_node_execution_duration(node_id, &node_label, node_type, &node_groups, &channel, elapsed);
+                metrics::record_node_execution_duration(
+                    node_id,
+                    &node_label,
+                    node_type,
+                    &node_groups,
+                    &channel,
+                    elapsed,
+                );
                 metrics::record_node_outcome(
                     node_id,
                     &node_label,
@@ -315,7 +326,14 @@ async fn run_pipeline(
             }
             Err(error) => {
                 let elapsed = t0.elapsed().as_millis() as f64;
-                metrics::record_node_execution_duration(node_id, &node_label, node_type, &node_groups, &channel, elapsed);
+                metrics::record_node_execution_duration(
+                    node_id,
+                    &node_label,
+                    node_type,
+                    &node_groups,
+                    &channel,
+                    elapsed,
+                );
                 metrics::record_node_outcome(
                     node_id,
                     &node_label,
@@ -752,6 +770,7 @@ async fn execute_node(
     secrets: &Secrets,
     node_label: Option<&str>,
     node_groups: Option<&str>,
+    app_handle: &tauri::AppHandle,
 ) -> Result<Vec<(i32, Value)>, anyhow::Error> {
     let node_type = node_value
         .get("type")
@@ -809,6 +828,9 @@ async fn execute_node(
         }
         "ai/prompt" => {
             super::nodes::execute_ai_prompt(node_value, inputs, secrets, config, node_groups).await
+        }
+        "overlay/display" => {
+            super::nodes::execute_overlay_display(node_value, inputs, app_handle.clone()).await
         }
         _ => {
             tracing::debug!(node_type, node = %label, groups = ?node_groups, "Unknown node type, skip execution");

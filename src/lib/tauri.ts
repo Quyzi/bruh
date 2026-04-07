@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
 
 export interface SetupStatus {
   credentialsConfigured: boolean;
@@ -301,4 +302,55 @@ export async function deleteAiAgent(name: string): Promise<void> {
 
 export async function testAiAgent(name: string, prompt: string): Promise<string> {
   return invoke<string>("test_ai_agent", { name, prompt });
+}
+
+// Overlay management
+export interface OverlayEventPayload {
+  message: string;
+  duration_ms: number;
+  template_name: string;
+}
+
+export async function listenOverlayDisplay(
+  callback: (payload: OverlayEventPayload) => void
+): Promise<UnlistenFn> {
+  return listen<OverlayEventPayload>("overlay-display", (event) => {
+    callback(event.payload);
+  });
+}
+
+export async function openOverlayWindow(): Promise<void> {
+  return invoke("open_overlay_window");
+}
+
+export async function closeOverlayWindow(): Promise<void> {
+  return invoke("close_overlay_window");
+}
+
+export async function getOverlayWindowState(): Promise<boolean> {
+  return invoke<boolean>("get_overlay_window_state");
+}
+
+export async function toggleOverlayWindow(): Promise<boolean> {
+  return invoke<boolean>("toggle_overlay_window");
+}
+
+export async function listOverlayTemplates(): Promise<string[]> {
+  return invoke<string[]>("list_overlay_templates");
+}
+
+export async function readOverlayTemplate(name: string): Promise<string> {
+  return invoke<string>("read_overlay_template", { name });
+}
+
+export async function writeOverlayTemplate(name: string, content: string): Promise<void> {
+  return invoke("write_overlay_template", { name, content });
+}
+
+export async function deleteOverlayTemplate(name: string): Promise<void> {
+  return invoke("delete_overlay_template", { name });
+}
+
+export async function renameOverlayTemplate(oldName: string, newName: string): Promise<void> {
+  return invoke("rename_overlay_template", { oldName, newName });
 }

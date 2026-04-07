@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bruh Overlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: transparent;
+            overflow: hidden;
+        }
+        
+        .overlay-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            pointer-events: none;
+        }
+        
+        .event {
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            animation: slideIn 0.3s ease-out, fadeOut 0.5s ease-in 4.5s forwards;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            max-width: 500px;
+        }
+        
+        .event-icon {
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        .event-content {
+            flex: 1;
+        }
+        
+        .event-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 2px;
+        }
+        
+        .event-message {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .event-timestamp {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 4px;
+        }
+        
+        .follow .event-icon { background: #9146FF; }
+        .subscribe .event-icon { background: #00d4aa; }
+        .raid .event-icon { background: #ff6b6b; }
+        .donation .event-icon { background: #ffd700; }
+        .host .event-icon { background: #4ecdc4; }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay-container" id="events"></div>
+    
+    <script>
+        const events = [];
+        const maxEvents = 5;
+        
+        function addEvent(type, title, message) {
+            const event = { type, title, message, timestamp: new Date() };
+            events.push(event);
+            
+            if (events.length > maxEvents) {
+                events.shift();
+            }
+            
+            renderEvents();
+        }
+        
+        function renderEvents() {
+            const container = document.getElementById('events');
+            container.innerHTML = events.map(event => `
+                <div class="event ${event.type}">
+                    <div class="event-icon">${getIcon(event.type)}</div>
+                    <div class="event-content">
+                        <div class="event-title">${escapeHtml(event.title)}</div>
+                        <div class="event-message">${escapeHtml(event.message)}</div>
+                        <div class="event-timestamp">${event.timestamp.toLocaleTimeString()}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function getIcon(type) {
+            const icons = {
+                follow: '❤️',
+                subscribe: '🎉',
+                raid: '⚔️',
+                donation: '💰',
+                host: '🏠'
+            };
+            return icons[type] || '🔔';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        window.addEventListener('message', (event) => {
+            const data = event.data;
+            if (data.type && data.title && data.message) {
+                addEvent(data.type, data.title, data.message);
+            }
+        });
+        
+        window.bruhOverlay = { addEvent };
+    </script>
+</body>
+</html>
