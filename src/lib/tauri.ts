@@ -306,8 +306,6 @@ export async function testAiAgent(name: string, prompt: string): Promise<string>
 
 // Overlay management
 export interface OverlayEventPayload {
-  channel: string;
-  user: string;
   message: string;
   duration_ms: number;
   template_name: string;
@@ -355,20 +353,4 @@ export async function deleteOverlayTemplate(name: string): Promise<void> {
 
 export async function renameOverlayTemplate(oldName: string, newName: string): Promise<void> {
   return invoke("rename_overlay_template", { oldName, newName });
-}
-
-export async function listOverlayCss(): Promise<string[]> {
-  return invoke<string[]>("list_overlay_css");
-}
-
-export async function readOverlayCss(name: string): Promise<string> {
-  return invoke<string>("read_overlay_css", { name });
-}
-
-export async function writeOverlayCss(name: string, content: string): Promise<void> {
-  return invoke("write_overlay_css", { name, content });
-}
-
-export async function deleteOverlayCss(name: string): Promise<void> {
-  return invoke("delete_overlay_css", { name });
 }

@@ -132,7 +132,7 @@ fn get_node_prefix<'a>(source_node: &'a Value) -> Option<&'a str> {
 /// Non-prefix nodes are always included unchanged.
 fn apply_prefix_specificity(
     matched: Vec<super::parse::SourcePath>,
-    payload: &Value,
+    _payload: &Value,
     nodes: &[Value],
 ) -> Vec<super::parse::SourcePath> {
     let mut prefix_paths: Vec<(super::parse::SourcePath, usize)> = Vec::new();

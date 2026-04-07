@@ -79,6 +79,10 @@ pub fn run(
         .manage(runtime_state.clone())
         .on_window_event(move |window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() != "main" {
+                    // Non-main windows (e.g. overlay) close normally
+                    return;
+                }
                 api.prevent_close();
                 let runtime_state = runtime_state.clone();
                 let w = window.clone();
@@ -143,14 +147,12 @@ pub fn run(
             overlay::open_overlay_window,
             overlay::close_overlay_window,
             overlay::toggle_overlay_window,
-            overlay::save_template,
-            overlay::load_template,
-            overlay::list_templates,
-            overlay::delete_template,
-            overlay::save_css,
-            overlay::load_css,
-            overlay::save_default_template,
-            overlay::load_default_template,
+            overlay::get_overlay_window_state,
+            overlay::list_overlay_templates,
+            overlay::read_overlay_template,
+            overlay::write_overlay_template,
+            overlay::delete_overlay_template,
+            overlay::rename_overlay_template,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

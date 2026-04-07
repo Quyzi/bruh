@@ -86,36 +86,27 @@ pub async fn execute(
     inputs: HashMap<i32, Value>,
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<(i32, Value)>, anyhow::Error> {
-    let channel = inputs
+    let message = inputs
         .get(&0)
         .and_then(|v| v.as_str())
         .map(String::from)
         .unwrap_or_default();
-    let user = inputs
-        .get(&1)
-        .and_then(|v| v.as_str())
-        .map(String::from)
-        .unwrap_or_default();
-    let message = inputs
-        .get(&2)
-        .and_then(|v| v.as_str())
-        .map(String::from)
-        .unwrap_or_default();
+    // Input is in seconds (e.g. "5" = 5 s = 5000 ms)
     let duration_ms = inputs
-        .get(&3)
+        .get(&1)
         .and_then(|v| {
-            v.as_u64()
-                .or(v.as_i64().filter(|&n| n >= 0).map(|n| n as u64))
+            let secs = v
+                .as_str()
+                .and_then(|s| s.trim().parse::<f64>().ok())
+                .or_else(|| v.as_f64());
+            secs.map(|s| (s * 1000.0).round() as u32)
         })
-        .and_then(|n| u32::try_from(n).ok())
         .unwrap_or_else(|| duration_ms_from_node(node_value))
         .clamp(MIN_DURATION_MS, MAX_DURATION_MS);
 
     let template_name = template_name_from_node(node_value);
 
     let event_data = serde_json::json!({
-        "channel": channel,
-        "user": user,
         "message": message,
         "duration_ms": duration_ms,
         "template_name": template_name,

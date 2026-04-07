@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::setup::CommandError;
@@ -21,19 +20,6 @@ fn get_templates_dir(app: &AppHandle) -> Result<PathBuf, CommandError> {
     Ok(templates_dir)
 }
 
-fn get_css_path(app: &AppHandle) -> Result<PathBuf, CommandError> {
-    let config_dir = app
-        .path()
-        .app_config_dir()
-        .map_err(|e| CommandError::new(e.to_string()))?;
-    Ok(config_dir.join("overlay.css"))
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TemplateInfo {
-    pub name: String,
-    pub path: String,
-}
 
 #[tauri::command]
 pub async fn open_overlay_window(app: AppHandle) -> Result<(), CommandError> {
@@ -47,10 +33,11 @@ pub async fn open_overlay_window(app: AppHandle) -> Result<(), CommandError> {
         WebviewUrl::App("/overlay".into()),
     )
     .title("Bruh Overlay")
-    .inner_size(1280.0, 720.0)
+    .inner_size(500.0, 250.0)
     .decorations(true)
     .always_on_top(true)
     .transparent(true)
+    .closable(false)
     .skip_taskbar(true)
     .resizable(true)
     .visible(true)
@@ -95,25 +82,36 @@ pub async fn toggle_overlay_window(app: AppHandle) -> Result<bool, CommandError>
 }
 
 #[tauri::command]
-pub fn save_template(app: AppHandle, name: String, content: String) -> Result<(), CommandError> {
-    let templates_dir = get_templates_dir(&app)?;
-    let template_path = templates_dir.join(format!("{}.html", name));
+pub fn get_overlay_window_state(app: AppHandle) -> bool {
+    app.get_webview_window(OVERLAY_WINDOW_LABEL)
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false)
+}
 
-    if let Some(parent) = template_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| CommandError::new(format!("Failed to create directory: {}", e)))?;
+// --- Template commands ---
+
+#[tauri::command]
+pub fn list_overlay_templates(app: AppHandle) -> Result<Vec<String>, CommandError> {
+    let templates_dir = get_templates_dir(&app)?;
+    let mut names = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(&templates_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map_or(false, |ext| ext == "html") {
+                if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
+                    names.push(name.to_string());
+                }
+            }
         }
     }
 
-    fs::write(&template_path, content)
-        .map_err(|e| CommandError::new(format!("Failed to save template: {}", e)))?;
-
-    Ok(())
+    names.sort();
+    Ok(names)
 }
 
 #[tauri::command]
-pub fn load_template(app: AppHandle, name: String) -> Result<String, CommandError> {
+pub fn read_overlay_template(app: AppHandle, name: String) -> Result<String, CommandError> {
     let templates_dir = get_templates_dir(&app)?;
     let template_path = templates_dir.join(format!("{}.html", name));
 
@@ -126,30 +124,20 @@ pub fn load_template(app: AppHandle, name: String) -> Result<String, CommandErro
 }
 
 #[tauri::command]
-pub fn list_templates(app: AppHandle) -> Result<Vec<TemplateInfo>, CommandError> {
+pub fn write_overlay_template(
+    app: AppHandle,
+    name: String,
+    content: String,
+) -> Result<(), CommandError> {
     let templates_dir = get_templates_dir(&app)?;
-    let mut templates = Vec::new();
+    let template_path = templates_dir.join(format!("{}.html", name));
 
-    if let Ok(entries) = fs::read_dir(&templates_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "html") {
-                if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                    templates.push(TemplateInfo {
-                        name: name.to_string(),
-                        path: path.to_string_lossy().to_string(),
-                    });
-                }
-            }
-        }
-    }
-
-    templates.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(templates)
+    fs::write(&template_path, content)
+        .map_err(|e| CommandError::new(format!("Failed to save template: {}", e)))
 }
 
 #[tauri::command]
-pub fn delete_template(app: AppHandle, name: String) -> Result<(), CommandError> {
+pub fn delete_overlay_template(app: AppHandle, name: String) -> Result<(), CommandError> {
     let templates_dir = get_templates_dir(&app)?;
     let template_path = templates_dir.join(format!("{}.html", name));
 
@@ -158,94 +146,27 @@ pub fn delete_template(app: AppHandle, name: String) -> Result<(), CommandError>
     }
 
     fs::remove_file(&template_path)
-        .map_err(|e| CommandError::new(format!("Failed to delete template: {}", e)))?;
-
-    Ok(())
+        .map_err(|e| CommandError::new(format!("Failed to delete template: {}", e)))
 }
 
 #[tauri::command]
-pub fn save_css(app: AppHandle, content: String) -> Result<(), CommandError> {
-    let css_path = get_css_path(&app)?;
-
-    if let Some(parent) = css_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| CommandError::new(format!("Failed to create directory: {}", e)))?;
-        }
-    }
-
-    fs::write(&css_path, content)
-        .map_err(|e| CommandError::new(format!("Failed to save CSS: {}", e)))?;
-
-    Ok(())
-}
-
-#[tauri::command]
-pub fn load_css(app: AppHandle) -> Result<String, CommandError> {
-    let css_path = get_css_path(&app)?;
-
-    if !css_path.exists() {
-        return Ok(String::new());
-    }
-
-    fs::read_to_string(&css_path)
-        .map_err(|e| CommandError::new(format!("Failed to read CSS: {}", e)))
-}
-
-#[tauri::command]
-pub fn save_default_template(
+pub fn rename_overlay_template(
     app: AppHandle,
-    name: String,
-    content: String,
+    old_name: String,
+    new_name: String,
 ) -> Result<(), CommandError> {
-    let config_dir = app
-        .path()
-        .app_config_dir()
-        .map_err(|e| CommandError::new(e.to_string()))?;
-    let defaults_dir = config_dir.join("templates").join("_defaults");
+    let templates_dir = get_templates_dir(&app)?;
+    let old_path = templates_dir.join(format!("{}.html", old_name));
+    let new_path = templates_dir.join(format!("{}.html", new_name));
 
-    if !defaults_dir.exists() {
-        fs::create_dir_all(&defaults_dir)
-            .map_err(|e| CommandError::new(format!("Failed to create defaults dir: {}", e)))?;
+    if !old_path.exists() {
+        return Err(CommandError::new(format!(
+            "Template '{}' not found",
+            old_name
+        )));
     }
 
-    let template_path = defaults_dir.join(format!("{}.html", name));
-    fs::write(&template_path, content)
-        .map_err(|e| CommandError::new(format!("Failed to save default template: {}", e)))?;
-
-    Ok(())
+    fs::rename(&old_path, &new_path)
+        .map_err(|e| CommandError::new(format!("Failed to rename template: {}", e)))
 }
 
-#[tauri::command]
-pub fn load_default_template(name: String) -> Result<String, CommandError> {
-    let binding = std::env::current_exe().map_err(|e| CommandError::new(e.to_string()))?;
-    let exe_dir = binding
-        .parent()
-        .ok_or_else(|| CommandError::new("Failed to get exe directory".to_string()))?;
-
-    let template_path = exe_dir
-        .join("resources")
-        .join("templates")
-        .join(format!("{}.html", name));
-
-    if template_path.exists() {
-        return fs::read_to_string(&template_path)
-            .map_err(|e| CommandError::new(format!("Failed to read default template: {}", e)));
-    }
-
-    let bundled_path = exe_dir
-        .join("..")
-        .join("share")
-        .join("bruh")
-        .join("templates")
-        .join(format!("{}.html", name));
-    if bundled_path.exists() {
-        return fs::read_to_string(&bundled_path)
-            .map_err(|e| CommandError::new(format!("Failed to read bundled template: {}", e)));
-    }
-
-    Err(CommandError::new(format!(
-        "Default template '{}' not found",
-        name
-    )))
-}
