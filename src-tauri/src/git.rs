@@ -85,6 +85,10 @@ impl GitManager {
         expand_tilde(&self.config.scripts)
     }
 
+    fn templates_dir(&self) -> PathBuf {
+        expand_tilde(&self.config.templates)
+    }
+
     // -----------------------------------------------------------------------
     // .gitignore management
     // -----------------------------------------------------------------------
@@ -281,6 +285,38 @@ impl GitManager {
             }
         }
 
+        // Check templates directory
+        let templates_dir = self.templates_dir();
+        let templates_in_head: HashMap<String, gix::ObjectId> = head_map
+            .iter()
+            .filter(|(k, _)| k.starts_with("templates/"))
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
+
+        if templates_dir.exists() {
+            for entry in std::fs::read_dir(&templates_dir)? {
+                let entry = entry?;
+                if !entry.path().is_file() {
+                    continue;
+                }
+                let name = format!("templates/{}", entry.file_name().to_string_lossy());
+                let content = std::fs::read(entry.path())?;
+                let id = self.write_blob(repo, &content)?;
+                match templates_in_head.get(&name) {
+                    Some(expected) if *expected == id => {}
+                    _ => return Ok(true),
+                }
+            }
+        }
+
+        // Check for templates deleted from HEAD
+        for key in templates_in_head.keys() {
+            let rel = key.strip_prefix("templates/").unwrap_or("");
+            if !templates_dir.join(rel).exists() {
+                return Ok(true);
+            }
+        }
+
         Ok(false)
     }
 
@@ -340,6 +376,37 @@ impl GitManager {
                 mode: gix::objs::tree::EntryKind::Tree.into(),
                 filename: "scripts".into(),
                 oid: scripts_tree_id.into(),
+            });
+        }
+
+        // Build templates subtree
+        let templates_dir = self.templates_dir();
+        if templates_dir.exists() {
+            let mut template_entries: Vec<gix::objs::tree::Entry> = Vec::new();
+            let mut dir_entries: Vec<_> = std::fs::read_dir(&templates_dir)?
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_file())
+                .collect();
+            dir_entries.sort_by_key(|e| e.file_name());
+
+            for entry in dir_entries {
+                let content = std::fs::read(entry.path())?;
+                let id = self.write_blob(&repo, &content)?;
+                template_entries.push(gix::objs::tree::Entry {
+                    mode: gix::objs::tree::EntryKind::Blob.into(),
+                    filename: entry.file_name().to_string_lossy().into_owned().into(),
+                    oid: id.into(),
+                });
+            }
+
+            let templates_tree = gix::objs::Tree {
+                entries: template_entries,
+            };
+            let templates_tree_id = repo.write_object(&templates_tree)?.detach();
+            root_entries.push(gix::objs::tree::Entry {
+                mode: gix::objs::tree::EntryKind::Tree.into(),
+                filename: "templates".into(),
+                oid: templates_tree_id.into(),
             });
         }
 
@@ -455,6 +522,36 @@ impl GitManager {
                 if entry.path().is_file() {
                     let name = entry.file_name().to_string_lossy().to_string();
                     if !tree_scripts.contains_key(&name) {
+                        std::fs::remove_file(entry.path())?;
+                    }
+                }
+            }
+        }
+
+        // Collect templates present in the target tree
+        let templates_dir = self.templates_dir();
+        let tree_templates: HashMap<String, gix::ObjectId> = tree_map
+            .iter()
+            .filter(|(k, _)| k.starts_with("templates/"))
+            .map(|(k, v)| (k["templates/".len()..].to_string(), *v))
+            .collect();
+
+        // Write templates from the tree
+        if !tree_templates.is_empty() {
+            std::fs::create_dir_all(&templates_dir)?;
+            for (name, blob_id) in &tree_templates {
+                let blob = repo.find_object(*blob_id)?.into_blob();
+                std::fs::write(templates_dir.join(name), &blob.data)?;
+            }
+        }
+
+        // Delete templates that are on disk but absent from the target tree
+        if templates_dir.exists() {
+            for entry in std::fs::read_dir(&templates_dir)? {
+                let entry = entry?;
+                if entry.path().is_file() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if !tree_templates.contains_key(&name) {
                         std::fs::remove_file(entry.path())?;
                     }
                 }

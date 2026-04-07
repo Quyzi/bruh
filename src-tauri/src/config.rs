@@ -64,6 +64,9 @@ pub struct Config {
     /// Path to the AI agents JSON file.
     #[serde(default = "default_ai_agents_path")]
     pub ai_agents: PathBuf,
+    /// Path to overlay templates directory.
+    #[serde(default = "default_templates_path")]
+    pub templates: PathBuf,
 }
 
 fn default_workflow_path() -> PathBuf {
@@ -78,6 +81,10 @@ fn default_ai_agents_path() -> PathBuf {
     "~/.bruh/ai_agents.json".into()
 }
 
+fn default_templates_path() -> PathBuf {
+    "~/.bruh/templates".into()
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -88,6 +95,7 @@ impl Default for Config {
             workflow: default_workflow_path(),
             channels: default_channels_path(),
             ai_agents: default_ai_agents_path(),
+            templates: default_templates_path(),
         }
     }
 }
