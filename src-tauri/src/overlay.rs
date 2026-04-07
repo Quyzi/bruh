@@ -1,18 +1,14 @@
 use std::fs;
 use std::path::PathBuf;
 
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
-use crate::setup::CommandError;
+use crate::{config::expand_tilde, setup::CommandError, Config};
 
 const OVERLAY_WINDOW_LABEL: &str = "overlay";
 
-fn get_templates_dir(app: &AppHandle) -> Result<PathBuf, CommandError> {
-    let config_dir = app
-        .path()
-        .app_config_dir()
-        .map_err(|e| CommandError::new(e.to_string()))?;
-    let templates_dir = config_dir.join("templates");
+fn get_templates_dir(config: &Config) -> Result<PathBuf, CommandError> {
+    let templates_dir = expand_tilde(&config.templates);
     if !templates_dir.exists() {
         fs::create_dir_all(&templates_dir)
             .map_err(|e| CommandError::new(format!("Failed to create templates dir: {}", e)))?;
@@ -91,8 +87,8 @@ pub fn get_overlay_window_state(app: AppHandle) -> bool {
 // --- Template commands ---
 
 #[tauri::command]
-pub fn list_overlay_templates(app: AppHandle) -> Result<Vec<String>, CommandError> {
-    let templates_dir = get_templates_dir(&app)?;
+pub fn list_overlay_templates(config: State<'_, Config>) -> Result<Vec<String>, CommandError> {
+    let templates_dir = get_templates_dir(&config)?;
     let mut names = Vec::new();
 
     if let Ok(entries) = fs::read_dir(&templates_dir) {
@@ -111,8 +107,8 @@ pub fn list_overlay_templates(app: AppHandle) -> Result<Vec<String>, CommandErro
 }
 
 #[tauri::command]
-pub fn read_overlay_template(app: AppHandle, name: String) -> Result<String, CommandError> {
-    let templates_dir = get_templates_dir(&app)?;
+pub fn read_overlay_template(config: State<'_, Config>, name: String) -> Result<String, CommandError> {
+    let templates_dir = get_templates_dir(&config)?;
     let template_path = templates_dir.join(format!("{}.html", name));
 
     if !template_path.exists() {
@@ -125,11 +121,11 @@ pub fn read_overlay_template(app: AppHandle, name: String) -> Result<String, Com
 
 #[tauri::command]
 pub fn write_overlay_template(
-    app: AppHandle,
+    config: State<'_, Config>,
     name: String,
     content: String,
 ) -> Result<(), CommandError> {
-    let templates_dir = get_templates_dir(&app)?;
+    let templates_dir = get_templates_dir(&config)?;
     let template_path = templates_dir.join(format!("{}.html", name));
 
     fs::write(&template_path, content)
@@ -137,8 +133,8 @@ pub fn write_overlay_template(
 }
 
 #[tauri::command]
-pub fn delete_overlay_template(app: AppHandle, name: String) -> Result<(), CommandError> {
-    let templates_dir = get_templates_dir(&app)?;
+pub fn delete_overlay_template(config: State<'_, Config>, name: String) -> Result<(), CommandError> {
+    let templates_dir = get_templates_dir(&config)?;
     let template_path = templates_dir.join(format!("{}.html", name));
 
     if !template_path.exists() {
@@ -151,11 +147,11 @@ pub fn delete_overlay_template(app: AppHandle, name: String) -> Result<(), Comma
 
 #[tauri::command]
 pub fn rename_overlay_template(
-    app: AppHandle,
+    config: State<'_, Config>,
     old_name: String,
     new_name: String,
 ) -> Result<(), CommandError> {
-    let templates_dir = get_templates_dir(&app)?;
+    let templates_dir = get_templates_dir(&config)?;
     let old_path = templates_dir.join(format!("{}.html", old_name));
     let new_path = templates_dir.join(format!("{}.html", new_name));
 

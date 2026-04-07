@@ -255,6 +255,10 @@ export async function gitGetStatus(): Promise<GitStatusResult> {
   return invoke<GitStatusResult>("git_get_status");
 }
 
+export async function gitGetDiff(): Promise<string> {
+  return invoke<string>("git_get_diff");
+}
+
 export async function gitCommit(message: string): Promise<void> {
   return invoke("git_commit", { message });
 }

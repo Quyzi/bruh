@@ -6,6 +6,8 @@
 
 use std::{collections::HashMap, path::PathBuf};
 
+use similar::TextDiff;
+
 use anyhow::{Context, Result};
 use gix::bstr::ByteSlice;
 use serde::Serialize;
@@ -83,6 +85,10 @@ impl GitManager {
 
     fn scripts_dir(&self) -> PathBuf {
         expand_tilde(&self.config.scripts)
+    }
+
+    fn templates_dir(&self) -> PathBuf {
+        expand_tilde(&self.config.templates)
     }
 
     // -----------------------------------------------------------------------
@@ -281,7 +287,161 @@ impl GitManager {
             }
         }
 
+        // Check templates directory
+        let templates_dir = self.templates_dir();
+        let templates_in_head: HashMap<String, gix::ObjectId> = head_map
+            .iter()
+            .filter(|(k, _)| k.starts_with("templates/"))
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
+
+        if templates_dir.exists() {
+            for entry in std::fs::read_dir(&templates_dir)? {
+                let entry = entry?;
+                if !entry.path().is_file() {
+                    continue;
+                }
+                let name = format!("templates/{}", entry.file_name().to_string_lossy());
+                let content = std::fs::read(entry.path())?;
+                let id = self.write_blob(repo, &content)?;
+                match templates_in_head.get(&name) {
+                    Some(expected) if *expected == id => {}
+                    _ => return Ok(true),
+                }
+            }
+        }
+
+        // Check for templates deleted from HEAD
+        for key in templates_in_head.keys() {
+            let rel = key.strip_prefix("templates/").unwrap_or("");
+            if !templates_dir.join(rel).exists() {
+                return Ok(true);
+            }
+        }
+
         Ok(false)
+    }
+
+    // -----------------------------------------------------------------------
+    // Diff (unified diff of working tree vs HEAD)
+    // -----------------------------------------------------------------------
+
+    fn diff_text(name: &str, old: &str, new: &str) -> String {
+        TextDiff::from_lines(old, new)
+            .unified_diff()
+            .header(&format!("a/{name}"), &format!("b/{name}"))
+            .to_string()
+    }
+
+    fn get_diff(&self) -> Result<String> {
+        let repo = self.open_or_init()?;
+        let head_map: HashMap<String, gix::ObjectId> = match repo.head_commit() {
+            Ok(c) => self.flatten_tree(&repo, c.tree()?, "")?,
+            Err(_) => HashMap::new(),
+        };
+
+        let mut output = String::new();
+
+        // Flat tracked files
+        for (name, abs_path) in self.tracked_flat_files() {
+            let old = head_map
+                .get(&name)
+                .and_then(|id| repo.find_object(*id).ok())
+                .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                .unwrap_or_default();
+            let new = if abs_path.exists() {
+                std::fs::read_to_string(&abs_path).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            if old != new {
+                output.push_str(&Self::diff_text(&name, &old, &new));
+            }
+        }
+
+        // Scripts directory
+        let scripts_dir = self.scripts_dir();
+        let head_scripts: HashMap<String, gix::ObjectId> = head_map
+            .iter()
+            .filter(|(k, _)| k.starts_with("scripts/"))
+            .map(|(k, v)| (k["scripts/".len()..].to_string(), *v))
+            .collect();
+
+        // Modified or added scripts
+        if scripts_dir.exists() {
+            let mut entries: Vec<_> = std::fs::read_dir(&scripts_dir)?
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_file())
+                .collect();
+            entries.sort_by_key(|e| e.file_name());
+            for entry in entries {
+                let fname = entry.file_name().to_string_lossy().to_string();
+                let repo_name = format!("scripts/{fname}");
+                let old = head_scripts
+                    .get(&fname)
+                    .and_then(|id| repo.find_object(*id).ok())
+                    .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                    .unwrap_or_default();
+                let new = std::fs::read_to_string(entry.path()).unwrap_or_default();
+                if old != new {
+                    output.push_str(&Self::diff_text(&repo_name, &old, &new));
+                }
+            }
+        }
+        // Deleted scripts
+        for (fname, id) in &head_scripts {
+            if !scripts_dir.join(fname).exists() {
+                let old = repo
+                    .find_object(*id)
+                    .ok()
+                    .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                    .unwrap_or_default();
+                output.push_str(&Self::diff_text(&format!("scripts/{fname}"), &old, ""));
+            }
+        }
+
+        // Templates directory
+        let templates_dir = self.templates_dir();
+        let head_templates: HashMap<String, gix::ObjectId> = head_map
+            .iter()
+            .filter(|(k, _)| k.starts_with("templates/"))
+            .map(|(k, v)| (k["templates/".len()..].to_string(), *v))
+            .collect();
+
+        // Modified or added templates
+        if templates_dir.exists() {
+            let mut entries: Vec<_> = std::fs::read_dir(&templates_dir)?
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_file())
+                .collect();
+            entries.sort_by_key(|e| e.file_name());
+            for entry in entries {
+                let fname = entry.file_name().to_string_lossy().to_string();
+                let repo_name = format!("templates/{fname}");
+                let old = head_templates
+                    .get(&fname)
+                    .and_then(|id| repo.find_object(*id).ok())
+                    .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                    .unwrap_or_default();
+                let new = std::fs::read_to_string(entry.path()).unwrap_or_default();
+                if old != new {
+                    output.push_str(&Self::diff_text(&repo_name, &old, &new));
+                }
+            }
+        }
+        // Deleted templates
+        for (fname, id) in &head_templates {
+            if !templates_dir.join(fname).exists() {
+                let old = repo
+                    .find_object(*id)
+                    .ok()
+                    .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                    .unwrap_or_default();
+                output.push_str(&Self::diff_text(&format!("templates/{fname}"), &old, ""));
+            }
+        }
+
+        Ok(output)
     }
 
     // -----------------------------------------------------------------------
@@ -340,6 +500,37 @@ impl GitManager {
                 mode: gix::objs::tree::EntryKind::Tree.into(),
                 filename: "scripts".into(),
                 oid: scripts_tree_id.into(),
+            });
+        }
+
+        // Build templates subtree
+        let templates_dir = self.templates_dir();
+        if templates_dir.exists() {
+            let mut template_entries: Vec<gix::objs::tree::Entry> = Vec::new();
+            let mut dir_entries: Vec<_> = std::fs::read_dir(&templates_dir)?
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_file())
+                .collect();
+            dir_entries.sort_by_key(|e| e.file_name());
+
+            for entry in dir_entries {
+                let content = std::fs::read(entry.path())?;
+                let id = self.write_blob(&repo, &content)?;
+                template_entries.push(gix::objs::tree::Entry {
+                    mode: gix::objs::tree::EntryKind::Blob.into(),
+                    filename: entry.file_name().to_string_lossy().into_owned().into(),
+                    oid: id.into(),
+                });
+            }
+
+            let templates_tree = gix::objs::Tree {
+                entries: template_entries,
+            };
+            let templates_tree_id = repo.write_object(&templates_tree)?.detach();
+            root_entries.push(gix::objs::tree::Entry {
+                mode: gix::objs::tree::EntryKind::Tree.into(),
+                filename: "templates".into(),
+                oid: templates_tree_id.into(),
             });
         }
 
@@ -461,6 +652,36 @@ impl GitManager {
             }
         }
 
+        // Collect templates present in the target tree
+        let templates_dir = self.templates_dir();
+        let tree_templates: HashMap<String, gix::ObjectId> = tree_map
+            .iter()
+            .filter(|(k, _)| k.starts_with("templates/"))
+            .map(|(k, v)| (k["templates/".len()..].to_string(), *v))
+            .collect();
+
+        // Write templates from the tree
+        if !tree_templates.is_empty() {
+            std::fs::create_dir_all(&templates_dir)?;
+            for (name, blob_id) in &tree_templates {
+                let blob = repo.find_object(*blob_id)?.into_blob();
+                std::fs::write(templates_dir.join(name), &blob.data)?;
+            }
+        }
+
+        // Delete templates that are on disk but absent from the target tree
+        if templates_dir.exists() {
+            for entry in std::fs::read_dir(&templates_dir)? {
+                let entry = entry?;
+                if entry.path().is_file() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if !tree_templates.contains_key(&name) {
+                        std::fs::remove_file(entry.path())?;
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -478,6 +699,15 @@ impl GitManager {
 // ---------------------------------------------------------------------------
 // Tauri commands
 // ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn git_get_diff(config: State<'_, Config>) -> Result<String, CommandError> {
+    GitManager::new(&config)
+        .get_diff()
+        .map_err(|e| CommandError {
+            message: e.to_string(),
+        })
+}
 
 #[tauri::command]
 pub fn git_get_status(config: State<'_, Config>) -> Result<GitStatusResult, CommandError> {
