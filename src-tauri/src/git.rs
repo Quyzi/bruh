@@ -6,6 +6,8 @@
 
 use std::{collections::HashMap, path::PathBuf};
 
+use similar::TextDiff;
+
 use anyhow::{Context, Result};
 use gix::bstr::ByteSlice;
 use serde::Serialize;
@@ -321,6 +323,128 @@ impl GitManager {
     }
 
     // -----------------------------------------------------------------------
+    // Diff (unified diff of working tree vs HEAD)
+    // -----------------------------------------------------------------------
+
+    fn diff_text(name: &str, old: &str, new: &str) -> String {
+        TextDiff::from_lines(old, new)
+            .unified_diff()
+            .header(&format!("a/{name}"), &format!("b/{name}"))
+            .to_string()
+    }
+
+    fn get_diff(&self) -> Result<String> {
+        let repo = self.open_or_init()?;
+        let head_map: HashMap<String, gix::ObjectId> = match repo.head_commit() {
+            Ok(c) => self.flatten_tree(&repo, c.tree()?, "")?,
+            Err(_) => HashMap::new(),
+        };
+
+        let mut output = String::new();
+
+        // Flat tracked files
+        for (name, abs_path) in self.tracked_flat_files() {
+            let old = head_map
+                .get(&name)
+                .and_then(|id| repo.find_object(*id).ok())
+                .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                .unwrap_or_default();
+            let new = if abs_path.exists() {
+                std::fs::read_to_string(&abs_path).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            if old != new {
+                output.push_str(&Self::diff_text(&name, &old, &new));
+            }
+        }
+
+        // Scripts directory
+        let scripts_dir = self.scripts_dir();
+        let head_scripts: HashMap<String, gix::ObjectId> = head_map
+            .iter()
+            .filter(|(k, _)| k.starts_with("scripts/"))
+            .map(|(k, v)| (k["scripts/".len()..].to_string(), *v))
+            .collect();
+
+        // Modified or added scripts
+        if scripts_dir.exists() {
+            let mut entries: Vec<_> = std::fs::read_dir(&scripts_dir)?
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_file())
+                .collect();
+            entries.sort_by_key(|e| e.file_name());
+            for entry in entries {
+                let fname = entry.file_name().to_string_lossy().to_string();
+                let repo_name = format!("scripts/{fname}");
+                let old = head_scripts
+                    .get(&fname)
+                    .and_then(|id| repo.find_object(*id).ok())
+                    .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                    .unwrap_or_default();
+                let new = std::fs::read_to_string(entry.path()).unwrap_or_default();
+                if old != new {
+                    output.push_str(&Self::diff_text(&repo_name, &old, &new));
+                }
+            }
+        }
+        // Deleted scripts
+        for (fname, id) in &head_scripts {
+            if !scripts_dir.join(fname).exists() {
+                let old = repo
+                    .find_object(*id)
+                    .ok()
+                    .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                    .unwrap_or_default();
+                output.push_str(&Self::diff_text(&format!("scripts/{fname}"), &old, ""));
+            }
+        }
+
+        // Templates directory
+        let templates_dir = self.templates_dir();
+        let head_templates: HashMap<String, gix::ObjectId> = head_map
+            .iter()
+            .filter(|(k, _)| k.starts_with("templates/"))
+            .map(|(k, v)| (k["templates/".len()..].to_string(), *v))
+            .collect();
+
+        // Modified or added templates
+        if templates_dir.exists() {
+            let mut entries: Vec<_> = std::fs::read_dir(&templates_dir)?
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_file())
+                .collect();
+            entries.sort_by_key(|e| e.file_name());
+            for entry in entries {
+                let fname = entry.file_name().to_string_lossy().to_string();
+                let repo_name = format!("templates/{fname}");
+                let old = head_templates
+                    .get(&fname)
+                    .and_then(|id| repo.find_object(*id).ok())
+                    .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                    .unwrap_or_default();
+                let new = std::fs::read_to_string(entry.path()).unwrap_or_default();
+                if old != new {
+                    output.push_str(&Self::diff_text(&repo_name, &old, &new));
+                }
+            }
+        }
+        // Deleted templates
+        for (fname, id) in &head_templates {
+            if !templates_dir.join(fname).exists() {
+                let old = repo
+                    .find_object(*id)
+                    .ok()
+                    .map(|obj| String::from_utf8_lossy(&obj.into_blob().data).into_owned())
+                    .unwrap_or_default();
+                output.push_str(&Self::diff_text(&format!("templates/{fname}"), &old, ""));
+            }
+        }
+
+        Ok(output)
+    }
+
+    // -----------------------------------------------------------------------
     // Commit
     // -----------------------------------------------------------------------
 
@@ -575,6 +699,15 @@ impl GitManager {
 // ---------------------------------------------------------------------------
 // Tauri commands
 // ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn git_get_diff(config: State<'_, Config>) -> Result<String, CommandError> {
+    GitManager::new(&config)
+        .get_diff()
+        .map_err(|e| CommandError {
+            message: e.to_string(),
+        })
+}
 
 #[tauri::command]
 pub fn git_get_status(config: State<'_, Config>) -> Result<GitStatusResult, CommandError> {

@@ -135,6 +135,7 @@ pub fn run(
             database::write_startup_sql,
             database::run_startup_sql,
             git::git_get_status,
+            git::git_get_diff,
             git::git_commit,
             git::git_reset,
             git::git_checkout_revision,
