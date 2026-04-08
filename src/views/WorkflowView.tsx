@@ -1,9 +1,9 @@
 import { onMount, onCleanup, createSignal, createEffect, Show } from "solid-js";
-import { LGraph, LGraphCanvas } from "litegraph.js";
+import { LGraph, LGraphCanvas, LGraphNode } from "litegraph.js";
 import "litegraph.js/css/litegraph.css";
 import { listen } from "@tauri-apps/api/event";
 import { configureLiteGraphTheme, registerAllNodes } from "../nodes";
-import { saveWorkflow, loadWorkflow } from "../lib/tauri";
+import { saveWorkflow, loadWorkflow, listenNodeExecutionStarted, listenNodeExecutionDone } from "../lib/tauri";
 import { notifyGitRefresh } from "../lib/gitRefreshBus";
 
 /**
@@ -49,6 +49,7 @@ export function WorkflowView(props: WorkflowViewProps) {
   let canvasRef: HTMLCanvasElement | undefined;
   let graph: LGraph | undefined;
   let graphCanvas: LGraphCanvas | undefined;
+  const originalColors = new Map<number, { color: string; bgcolor: string }>();
   const [canvasInstance, setCanvasInstance] = createSignal<LGraphCanvas | null>(null);
   const [dirty, setDirty] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
@@ -90,6 +91,7 @@ export function WorkflowView(props: WorkflowViewProps) {
       const savedWorkflow = await loadWorkflow();
       if (savedWorkflow !== null && savedWorkflow !== undefined) {
         graph.configure(savedWorkflow as object);
+        originalColors.clear();
         setDirty(false);
         graphCanvas.setDirty(true, true);
       }
@@ -215,11 +217,38 @@ export function WorkflowView(props: WorkflowViewProps) {
       handleReload();
     });
 
+    const unlistenNodeStarted = listenNodeExecutionStarted((payload) => {
+      if (!graph || !graphCanvas) return;
+      const node = graph.getNodeById(payload.nodeId);
+      if (!node) return;
+      if (!originalColors.has(payload.nodeId)) {
+        originalColors.set(payload.nodeId, { color: node.color, bgcolor: node.bgcolor });
+      }
+      node.color = "#3d3a6b";
+      node.bgcolor = "#2a2750";
+      graphCanvas.setDirty(true, true);
+    });
+
+    const unlistenNodeDone = listenNodeExecutionDone((payload) => {
+      if (!graph || !graphCanvas) return;
+      const node = graph.getNodeById(payload.nodeId);
+      if (!node) return;
+      const orig = originalColors.get(payload.nodeId);
+      if (orig) {
+        node.color = orig.color;
+        node.bgcolor = orig.bgcolor;
+        originalColors.delete(payload.nodeId);
+      }
+      graphCanvas.setDirty(true, true);
+    });
+
     onCleanup(() => {
       setCanvasInstance(null);
       document.removeEventListener("keydown", onKeyDown);
       resizeObserver.disconnect();
       unlistenRestore.then((u) => u());
+      unlistenNodeStarted.then((u) => u());
+      unlistenNodeDone.then((u) => u());
       if (graphCanvas) {
         graphCanvas.stopRendering();
       }
@@ -262,6 +291,7 @@ export function WorkflowView(props: WorkflowViewProps) {
           onClick={() => {
             if (graph) {
               graph.clear();
+              originalColors.clear();
               graphCanvas?.setDirty(true, true);
             }
           }}

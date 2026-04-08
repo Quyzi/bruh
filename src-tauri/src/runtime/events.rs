@@ -26,3 +26,12 @@ pub struct DashboardChatPayload {
     /// Twitch user's chosen name color (hex e.g. "#00FF7F"). Empty if not set.
     pub color: String,
 }
+
+/// Payload emitted to the frontend when a node starts or finishes executing.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeExecutionPayload {
+    pub node_id: i32,
+    pub node_label: String,
+    pub node_type: String,
+}

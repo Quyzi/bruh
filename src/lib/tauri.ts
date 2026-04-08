@@ -358,3 +358,25 @@ export async function deleteOverlayTemplate(name: string): Promise<void> {
 export async function renameOverlayTemplate(oldName: string, newName: string): Promise<void> {
   return invoke("rename_overlay_template", { oldName, newName });
 }
+
+export interface NodeExecutionPayload {
+  nodeId: number;
+  nodeLabel: string;
+  nodeType: string;
+}
+
+export async function listenNodeExecutionStarted(
+  callback: (payload: NodeExecutionPayload) => void
+): Promise<UnlistenFn> {
+  return listen<NodeExecutionPayload>("bruh://node-execution", (event) => {
+    callback(event.payload);
+  });
+}
+
+export async function listenNodeExecutionDone(
+  callback: (payload: NodeExecutionPayload) => void
+): Promise<UnlistenFn> {
+  return listen<NodeExecutionPayload>("bruh://node-execution-done", (event) => {
+    callback(event.payload);
+  });
+}

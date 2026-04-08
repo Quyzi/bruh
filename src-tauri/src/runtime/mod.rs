@@ -14,7 +14,7 @@ pub use commands::{
     get_runtime_state, load_workflow, load_workflow_from_path, runtime_start, runtime_stop,
     save_workflow,
 };
-pub use events::{PipelineEvent, PIPELINE_EVENT_CHANNEL_CAPACITY};
+pub use events::{NodeExecutionPayload, PipelineEvent, PIPELINE_EVENT_CHANNEL_CAPACITY};
 pub use eventsub::workflow_event_types;
 pub use graph::{Link, SerializedGroup, WorkflowGraph};
 pub use nodes::ai_prompt_call_provider;
