@@ -10,6 +10,8 @@ use crate::metrics;
 use crate::Database;
 use crate::Secrets;
 
+use tauri::Emitter;
+
 use super::events::PipelineEvent;
 use super::parse::SourcePath;
 use super::pipeline;
@@ -286,6 +288,14 @@ async fn run_pipeline(
         let inputs = resolve_inputs(node_id, node_value, &reverse_index, &slot_values);
         tracing::trace!(node_id, node = %node_label, groups = %node_groups, input_count = inputs.len(), "Resolved inputs");
         metrics::record_node_execution(node_id, &node_label, node_type, &node_groups, &channel);
+        let _ = app_handle.emit(
+            "bruh://node-execution",
+            crate::runtime::NodeExecutionPayload {
+                node_id,
+                node_label: node_label.clone(),
+                node_type: node_type.to_string(),
+            },
+        );
         let t0 = std::time::Instant::now();
         match execute_node(
             node_value,
@@ -323,6 +333,14 @@ async fn run_pipeline(
                     slot_values.insert((node_id, slot_index), value);
                 }
                 tracing::debug!(node_id, node = %node_label, groups = %node_groups, output_count, elapsed_ms = elapsed * 1000.0, "Node executed");
+                let _ = app_handle.emit(
+                    "bruh://node-execution-done",
+                    crate::runtime::NodeExecutionPayload {
+                        node_id,
+                        node_label: node_label.clone(),
+                        node_type: node_type.to_string(),
+                    },
+                );
             }
             Err(error) => {
                 let elapsed = t0.elapsed().as_millis() as f64;
@@ -343,6 +361,14 @@ async fn run_pipeline(
                     "error",
                 );
                 tracing::warn!(node_id, node = %node_label, groups = %node_groups, error = %error, "Node execution failed");
+                let _ = app_handle.emit(
+                    "bruh://node-execution-done",
+                    crate::runtime::NodeExecutionPayload {
+                        node_id,
+                        node_label: node_label.clone(),
+                        node_type: node_type.to_string(),
+                    },
+                );
                 return Err(error.into());
             }
         }
