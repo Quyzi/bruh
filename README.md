@@ -147,6 +147,15 @@ bruh/
 └─ build.sh             # Custom Linux build script
 ```
 
+## faq
+
+- Why squirrel?  
+Why not?
+
+- Why make this?  
+See above. 
+
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.

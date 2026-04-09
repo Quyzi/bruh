@@ -5454,12 +5454,13 @@ checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
 
 [[package]]
 name = "securestore"
-version = "0.100.0"
-source = "git+https://github.com/Quyzi/securestore-rs.git?branch=rustls-impl#d95b9df7f03f2a3eb01386599be422f7716490ea"
+version = "0.100.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30141211b7a14cf75b47fa32891877191384f620657c48c2bdbb6708b0a02a28"
 dependencies = [
  "aes",
  "cbc",
- "getrandom 0.2.17",
+ "getrandom 0.3.4",
  "hmac",
  "pbkdf2",
  "radix64",
