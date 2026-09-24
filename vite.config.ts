@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
+import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { readFileSync } from "fs";
 import { resolve } from "path";
@@ -9,9 +10,21 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, "package.json"), "utf-8")
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+// Observed build id: `/home/.../src/workflow/ui/FlowNode.tsx` (absolute, no query).
+// Left unanchored so a `?query` suffix still matches.
+const workflowUiTsx = /workflow\/ui\/.*\.tsx/;
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [solid(), tailwindcss()],
+  plugins: [
+    // React island for the workflow canvas. Solid owns every other .tsx file.
+    // Production builds drop plugin-react's Babel transform and compile JSX with
+    // esbuild. Without an explicit import source, esbuild keeps tsconfig's
+    // `solid-js` jsxImportSource (`solid-js/jsx-runtime` → solid.js, which has no `jsxs`).
+    react({ include: workflowUiTsx, jsxImportSource: "react" }),
+    solid({ exclude: workflowUiTsx }),
+    tailwindcss(),
+  ],
 
   define: {
     __BRUH_VERSION__: JSON.stringify(pkg.version),

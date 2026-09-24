@@ -1,4 +1,4 @@
-import { LiteGraph } from "litegraph.js";
+import type { NodeDef } from "../../workflow/types";
 
 /**
  * Optional data output for an event node (e.g. user, tier).
@@ -9,7 +9,8 @@ export interface TwitchEventOutput {
 }
 
 /**
- * Configuration for creating a Twitch event node
+ * Configuration for creating a Twitch event node.
+ * `category` is the workflow node type string the runtime stores.
  */
 export interface TwitchEventConfig {
   /** The EventSub event type (e.g., "channel.follow") */
@@ -18,37 +19,46 @@ export interface TwitchEventConfig {
   title: string;
   /** Description of what this event does */
   description: string;
-  /** LiteGraph category path (e.g., "twitch/channel") */
+  /** Node type path (e.g., "twitch/channel/follow") */
   category: string;
-  /** Optional data outputs (e.g. user, tier) filled by the backend when the event fires */
+  /** Optional data outputs filled by the backend when the event fires */
   outputs?: TwitchEventOutput[];
 }
 
+const eventDefs: NodeDef[] = [];
+
+export function resetEventNodeDefs(): void {
+  eventDefs.length = 0;
+}
+
+export function getEventNodeDefs(): NodeDef[] {
+  return eventDefs;
+}
+
 /**
- * Creates a Twitch event node constructor for the given configuration.
- * Each event type gets its own dedicated node for better organization and discoverability.
+ * Creates a catalog entry for one Twitch event node.
+ * Slot order follows `config.outputs` because the runtime injects values by slot index.
  */
 export function createTwitchEventNode(config: TwitchEventConfig) {
-  const nodeConstructor = function (this: any) {
-    this.properties = { eventType: config.eventType };
-    if (config.outputs) {
-      for (const output of config.outputs) {
-        this.addOutput(output.name, output.type);
-      }
-    }
+  const outputs = (config.outputs ?? []).map((output) => ({
+    name: output.name,
+    type: output.type,
+  }));
+  const def: NodeDef = {
+    type: config.category,
+    title: config.title,
+    description: config.description,
+    inputs: [],
+    outputs,
+    fields: [],
+    properties: { eventType: config.eventType },
+    width: 220,
+    height: Math.max(64, 40 + outputs.length * 22),
   };
-
-  nodeConstructor.prototype.onExecute = function () {
-    // Placeholder - will be triggered by actual Twitch EventSub events
-  };
-
-  nodeConstructor.title = config.title;
-  nodeConstructor.desc = config.description;
 
   return {
-    constructor: nodeConstructor,
     register: () => {
-      LiteGraph.registerNodeType(config.category, nodeConstructor as any);
+      eventDefs.push(def);
     },
   };
 }
