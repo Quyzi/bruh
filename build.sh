@@ -14,7 +14,12 @@ fix_linuxdeploy_cache() {
 }
 
 export ARCH=x86_64
-export APPIMAGE_EXTRACT_AND_RUN=1
+# /tmp is mounted noexec here; linuxdeploy's AppImage runtime (Tauri forces
+# --appimage-extract-and-run) extracts to $TMPDIR, so point it at an
+# executable location or bundling fails with "failed to run linuxdeploy".
+BUILD_TMP="${BRUH_BUILD_TMP:-$HOME/.cache/bruh-build-tmp}"
+mkdir -p "$BUILD_TMP"
+export TMPDIR="$BUILD_TMP"
 export NO_STRIP=1
 
 echo "Building Bruh (frontend + Tauri)..."

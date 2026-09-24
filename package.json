@@ -9,7 +9,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "tauri": "tauri",
-    "tauri:build": "ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 tauri build",
+    "tauri:build": "ARCH=x86_64 tauri build",
     "tauri:dev": "CXX=clang++ CC=clang WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev",
     "check:graph": "esbuild src/workflow/litegraphDoc.check.ts --bundle --platform=node --format=esm --outfile=/tmp/bruh-graph-check.mjs && node /tmp/bruh-graph-check.mjs"
   },
