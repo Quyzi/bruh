@@ -19,8 +19,12 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* @types/react ships a global JSX namespace. Keep it out of the Solid program. */
+    "types": ["vite/client"]
   },
   "include": ["src"],
+  "exclude": ["src/workflow/ui"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
